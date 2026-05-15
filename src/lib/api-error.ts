@@ -1,16 +1,15 @@
 import { AxiosError } from "axios";
-import type { ApiError } from "@/types";
+import type { ApiError, ApiFailureEnvelope } from "@/types";
 
 export function parseApiError(error: unknown): ApiError {
   if (error instanceof AxiosError) {
     const status = error.response?.status ?? 0;
-    const data = error.response?.data as
-      | { message?: string; errors?: Record<string, string[]> }
-      | undefined;
+    const data = error.response?.data as ApiFailureEnvelope | undefined;
     return {
       status,
       message: data?.message ?? translateStatus(status),
-      errors: data?.errors,
+      code: data?.code,
+      details: data?.details,
     };
   }
   if (error instanceof Error) {
@@ -31,6 +30,8 @@ function translateStatus(status: number): string {
       return "اجازه دسترسی ندارید";
     case 404:
       return "موردی یافت نشد";
+    case 409:
+      return "تعارض در داده‌ها";
     case 422:
       return "اطلاعات وارد شده معتبر نیست";
     case 429:

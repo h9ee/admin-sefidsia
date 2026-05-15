@@ -1,37 +1,74 @@
-import { api } from "@/lib/axios";
-import type { ModerationLog, Paginated, Report } from "@/types";
+import { apiGet, apiList, apiPatch, apiPost } from "@/lib/axios";
+import type {
+  ModerationAction,
+  ModerationLog,
+  Report,
+  ReportStatus,
+  ReportTargetType,
+} from "@/types";
 
 export type ReportsQuery = {
   page?: number;
-  perPage?: number;
-  status?: string;
-  targetType?: string;
-  dangerous?: boolean;
+  limit?: number;
+  status?: ReportStatus;
+  sortBy?: "createdAt" | "status";
+  sortOrder?: "ASC" | "DESC";
 };
 
 export const reportsService = {
-  async list(params: ReportsQuery = {}) {
-    const { data } = await api.get<Paginated<Report>>("/admin/reports", { params });
-    return data;
+  list(params: ReportsQuery = {}) {
+    return apiList<Report>("/reports", params);
   },
-  async setStatus(id: string, status: Report["status"], note?: string) {
-    const { data } = await api.patch<Report>(`/admin/reports/${id}/status`, { status, note });
-    return data;
+  create(payload: {
+    targetType: ReportTargetType;
+    targetId: string;
+    reason: string;
+    description?: string;
+  }) {
+    return apiPost<Report>("/reports", payload);
   },
-  async hideTarget(report: Report, note?: string) {
-    const { data } = await api.post<Report>(`/admin/reports/${report.id}/hide`, { note });
-    return data;
+  review(id: string, status: "reviewed" | "rejected" | "resolved", note?: string) {
+    return apiPatch<Report>(`/reports/${id}/review`, { status, note });
   },
-  async restoreTarget(report: Report, note?: string) {
-    const { data } = await api.post<Report>(`/admin/reports/${report.id}/restore`, { note });
-    return data;
+};
+
+export const moderationService = {
+  act(payload: {
+    targetType: "article" | "question" | "answer" | "comment";
+    targetId: string;
+    action: ModerationAction;
+    reason?: string;
+  }) {
+    return apiPost<{ ok: boolean }>("/moderation", payload);
   },
-  async bulkAction(payload: { ids: string[]; action: "hide" | "restore" | "dismiss" }) {
-    const { data } = await api.post(`/admin/reports/bulk`, payload);
-    return data;
+  logs(params: { page?: number; limit?: number } = {}) {
+    return apiList<ModerationLog>("/moderation/logs", params);
   },
-  async logs(params: { page?: number; perPage?: number } = {}) {
-    const { data } = await api.get<Paginated<ModerationLog>>("/admin/moderation-logs", { params });
-    return data;
+  /**
+   * Convenience helper combining moderation + report status update.
+   * Note: backend's moderation endpoint does not support "user" targets — those
+   * have to be handled through `/users/:id` directly.
+   */
+  async hideReportTarget(report: Report, reason?: string) {
+    if (report.targetType !== "user") {
+      await this.act({
+        targetType: report.targetType,
+        targetId: report.targetId,
+        action: "hide",
+        reason,
+      });
+    }
+    return reportsService.review(report.id, "resolved", reason);
+  },
+  async restoreReportTarget(report: Report, reason?: string) {
+    if (report.targetType !== "user") {
+      await this.act({
+        targetType: report.targetType,
+        targetId: report.targetId,
+        action: "restore",
+        reason,
+      });
+    }
+    return reportsService.review(report.id, "reviewed", reason);
   },
 };

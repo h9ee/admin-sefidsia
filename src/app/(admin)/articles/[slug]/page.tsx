@@ -6,13 +6,16 @@ export const metadata = { title: "ویرایش مقاله — سفید و سیا
 export default async function EditArticlePage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ slug: string }>;
 }) {
-  const { id } = await params;
+  const { slug } = await params;
   return (
     <>
-      <PageHeader title="ویرایش مقاله" description="بروزرسانی محتوا، انتشار و تنظیمات سئو." />
-      <ArticleForm id={id} />
+      <PageHeader
+        title="ویرایش مقاله"
+        description="بروزرسانی محتوا، انتشار و تنظیمات سئو."
+      />
+      <ArticleForm slug={slug} />
     </>
   );
 }

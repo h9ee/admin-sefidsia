@@ -3,6 +3,8 @@
 import { useEffect, type ReactNode } from "react";
 import { useAuthStore } from "@/store/auth.store";
 import { authService } from "@/services/auth.service";
+import { env } from "@/config/env";
+import { storage } from "@/lib/storage";
 
 /**
  * Hydrates the auth session from /auth/me on mount when an access token exists,
@@ -10,27 +12,19 @@ import { authService } from "@/services/auth.service";
  */
 export function PermissionProvider({ children }: { children: ReactNode }) {
   const setUser = useAuthStore((s) => s.setUser);
-  const setSession = useAuthStore((s) => s.setSession);
   const clear = useAuthStore((s) => s.clear);
   const hydrated = useAuthStore((s) => s.hydrated);
 
   useEffect(() => {
     if (!hydrated) return;
-    if (typeof window === "undefined") return;
-    const token = window.localStorage.getItem("ss-access-token");
+    const token = storage.get(env.storageKey.accessToken);
     if (!token) return;
     let active = true;
     authService
       .me()
-      .then((res) => {
+      .then((user) => {
         if (!active) return;
-        setSession({
-          user: res.user,
-          permissions: res.permissions,
-          accessToken: token,
-          refreshToken: window.localStorage.getItem("ss-refresh-token") ?? "",
-        });
-        setUser(res.user);
+        setUser(user);
       })
       .catch(() => {
         if (!active) return;
@@ -39,7 +33,7 @@ export function PermissionProvider({ children }: { children: ReactNode }) {
     return () => {
       active = false;
     };
-  }, [hydrated, setUser, setSession, clear]);
+  }, [hydrated, setUser, clear]);
 
   return <>{children}</>;
 }

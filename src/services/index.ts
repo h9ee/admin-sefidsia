@@ -8,3 +8,4 @@ export * from "./reports.service";
 export * from "./notifications.service";
 export * from "./dashboard.service";
 export * from "./tags.service";
+export * from "./gamification.service";

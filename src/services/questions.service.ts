@@ -1,65 +1,93 @@
-import { api } from "@/lib/axios";
-import type { Answer, Comment, Paginated, Question, Tag } from "@/types";
+import { apiDelete, apiGet, apiList, apiPatch, apiPost } from "@/lib/axios";
+import type {
+  Answer,
+  AnswerStatus,
+  Comment,
+  CommentStatus,
+  CommentTargetType,
+  MedicalWarningLevel,
+  Question,
+  QuestionStatus,
+} from "@/types";
 
 export type QuestionsQuery = {
   page?: number;
-  perPage?: number;
-  search?: string;
-  status?: string;
-  tag?: string;
-  dangerous?: boolean;
+  limit?: number;
+  q?: string;
+  status?: QuestionStatus;
+  tagId?: string;
+  authorId?: string;
+  unanswered?: boolean;
   trending?: boolean;
+  sortBy?: "createdAt" | "voteScore" | "answerCount" | "viewCount";
+  sortOrder?: "ASC" | "DESC";
+};
+
+export type CreateQuestionPayload = {
+  title: string;
+  body: string;
+  isAnonymous?: boolean;
+  tagIds?: string[];
+  medicalWarningLevel?: MedicalWarningLevel;
+  seoTitle?: string;
+  seoDescription?: string;
 };
 
 export const questionsService = {
-  async list(params: QuestionsQuery = {}) {
-    const { data } = await api.get<Paginated<Question>>("/admin/questions", { params });
-    return data;
+  list(params: QuestionsQuery = {}) {
+    return apiList<Question>("/questions", params);
   },
-  async get(id: string) {
-    const { data } = await api.get<Question>(`/admin/questions/${id}`);
-    return data;
+  getBySlug(slug: string) {
+    return apiGet<Question>(`/questions/${slug}`);
   },
-  async setStatus(id: string, status: Question["status"]) {
-    const { data } = await api.patch<Question>(`/admin/questions/${id}/status`, { status });
-    return data;
+  related(id: string) {
+    return apiGet<Question[]>(`/questions/${id}/related`);
   },
-  async toggleDangerous(id: string, value: boolean) {
-    const { data } = await api.patch<Question>(`/admin/questions/${id}/dangerous`, { value });
-    return data;
+  create(payload: CreateQuestionPayload) {
+    return apiPost<Question>("/questions", payload);
   },
-  async setTags(id: string, tagIds: string[]) {
-    const { data } = await api.patch<Question>(`/admin/questions/${id}/tags`, { tagIds });
-    return data;
+  update(id: string, payload: Partial<CreateQuestionPayload>) {
+    return apiPatch<Question>(`/questions/${id}`, payload);
   },
-  async listAnswers(params: {
-    page?: number;
-    perPage?: number;
-    search?: string;
-    status?: string;
-  } = {}) {
-    const { data } = await api.get<Paginated<Answer>>("/admin/answers", { params });
-    return data;
+  remove(id: string) {
+    return apiDelete(`/questions/${id}`);
   },
-  async setAnswerStatus(id: string, status: Answer["status"]) {
-    const { data } = await api.patch<Answer>(`/admin/answers/${id}/status`, { status });
-    return data;
+  acceptAnswer(questionId: string, answerId: string) {
+    return apiPost<Question>(`/questions/${questionId}/accept-answer`, { answerId });
   },
-  async listComments(params: {
-    page?: number;
-    perPage?: number;
-    search?: string;
-    status?: string;
-  } = {}) {
-    const { data } = await api.get<Paginated<Comment>>("/admin/comments", { params });
-    return data;
+};
+
+export const answersService = {
+  listForQuestion(questionId: string) {
+    return apiGet<Answer[]>(`/questions/${questionId}/answers`);
   },
-  async setCommentStatus(id: string, status: Comment["status"]) {
-    const { data } = await api.patch<Comment>(`/admin/comments/${id}/status`, { status });
-    return data;
+  create(questionId: string, body: string) {
+    return apiPost<Answer>(`/questions/${questionId}/answers`, { body });
   },
-  async listTags() {
-    const { data } = await api.get<Tag[]>("/admin/tags");
-    return data;
+  update(id: string, payload: { body?: string; status?: AnswerStatus }) {
+    return apiPatch<Answer>(`/answers/${id}`, payload);
+  },
+  remove(id: string) {
+    return apiDelete(`/answers/${id}`);
+  },
+};
+
+export const commentsService = {
+  listForTarget(targetType: CommentTargetType, targetId: string) {
+    return apiGet<Comment[]>("/comments", { targetType, targetId });
+  },
+  create(payload: {
+    targetType: CommentTargetType;
+    targetId: string;
+    body: string;
+    parentId?: string;
+  }) {
+    return apiPost<Comment>("/comments", payload);
+  },
+  update(id: string, payload: { body?: string; status?: CommentStatus }) {
+    return apiPatch<Comment>(`/comments/${id}`, payload);
+  },
+  remove(id: string) {
+    return apiDelete(`/comments/${id}`);
   },
 };

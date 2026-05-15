@@ -26,6 +26,7 @@ import {
 import { DataTable, type Column } from "@/components/tables/data-table";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { FormInput } from "@/components/forms/form-input";
+import { FormTextarea } from "@/components/forms/form-textarea";
 import { PermissionGuard } from "@/components/permission/permission-guard";
 import { usePermission } from "@/hooks/use-permission";
 import { tagsService } from "@/services/tags.service";
@@ -34,8 +35,15 @@ import { formatNumber, slugify } from "@/lib/format";
 import type { Paginated, Tag } from "@/types";
 
 const schema = z.object({
-  name: z.string().min(1, "نام الزامی است"),
-  slug: z.string().min(1, "شناسه الزامی است"),
+  name: z.string().min(2, "نام الزامی است").max(80),
+  slug: z
+    .string()
+    .min(2)
+    .max(120)
+    .regex(/^[a-z0-9-]+$/, "فقط حروف کوچک انگلیسی، عدد و -")
+    .optional()
+    .or(z.literal("")),
+  description: z.string().max(500).optional().or(z.literal("")),
 });
 type Values = z.infer<typeof schema>;
 
@@ -53,9 +61,12 @@ export function TagsList() {
     let active = true;
     setLoading(true);
     tagsService
-      .list({ page, perPage: 12, search })
+      .list({ page, limit: 12, q: search || undefined })
       .then((res) => active && setData(res))
-      .catch(() => active && setData({ data: [], meta: { total: 0, page, perPage: 12, totalPages: 1 } }))
+      .catch(() =>
+        active &&
+        setData({ data: [], meta: { page, limit: 12, total: 0, totalPages: 1 } }),
+      )
       .finally(() => active && setLoading(false));
     return () => {
       active = false;
@@ -77,10 +88,27 @@ export function TagsList() {
         ),
       },
       {
-        key: "count",
+        key: "description",
+        header: "توضیح",
+        cell: (t) => (
+          <span className="line-clamp-1 text-xs text-muted-foreground">
+            {t.description ?? "—"}
+          </span>
+        ),
+      },
+      {
+        key: "usageCount",
         header: "استفاده",
         cell: (t) =>
-          t.count != null ? <Badge variant="muted">{formatNumber(t.count)}</Badge> : "—",
+          t.usageCount != null ? <Badge variant="muted">{formatNumber(t.usageCount)}</Badge> : "—",
+      },
+      {
+        key: "followerCount",
+        header: "دنبال‌کنندگان",
+        cell: (t) =>
+          t.followerCount != null
+            ? <Badge variant="outline">{formatNumber(t.followerCount)}</Badge>
+            : "—",
       },
     ],
     [],
@@ -92,7 +120,7 @@ export function TagsList() {
         data={data?.data ?? []}
         total={data?.meta.total}
         page={page}
-        perPage={data?.meta.perPage ?? 12}
+        perPage={data?.meta.limit ?? 12}
         onPageChange={setPage}
         search={search}
         onSearch={(q) => {
@@ -103,7 +131,7 @@ export function TagsList() {
         loading={loading}
         columns={columns}
         toolbar={
-          <PermissionGuard permission="tags.create">
+          <PermissionGuard permission="tags.manage">
             <Button
               onClick={() => {
                 setEditing(null);
@@ -123,7 +151,7 @@ export function TagsList() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              {can("tags.update") ? (
+              {can("tags.manage") ? (
                 <DropdownMenuItem
                   onSelect={() => {
                     setEditing(t);
@@ -134,7 +162,7 @@ export function TagsList() {
                   ویرایش
                 </DropdownMenuItem>
               ) : null}
-              {can("tags.delete") ? (
+              {can("tags.manage") ? (
                 <ConfirmDialog
                   title={`حذف ${t.name}؟`}
                   destructive
@@ -184,11 +212,15 @@ function TagFormDialog({
 }) {
   const methods = useForm<Values>({
     resolver: zodResolver(schema),
-    defaultValues: { name: "", slug: "" },
+    defaultValues: { name: "", slug: "", description: "" },
   });
 
   useEffect(() => {
-    methods.reset({ name: editing?.name ?? "", slug: editing?.slug ?? "" });
+    methods.reset({
+      name: editing?.name ?? "",
+      slug: editing?.slug ?? "",
+      description: editing?.description ?? "",
+    });
   }, [editing, methods, open]);
 
   const name = methods.watch("name");
@@ -198,11 +230,20 @@ function TagFormDialog({
 
   const onSubmit = methods.handleSubmit(async (values) => {
     try {
+      const clean = (v?: string) => (v && v.length > 0 ? v : undefined);
       if (editing) {
-        await tagsService.update(editing.id, values);
+        await tagsService.update(editing.id, {
+          name: values.name,
+          slug: clean(values.slug),
+          description: clean(values.description),
+        });
         toast.success("برچسب بروزرسانی شد");
       } else {
-        await tagsService.create(values);
+        await tagsService.create({
+          name: values.name,
+          slug: clean(values.slug),
+          description: clean(values.description),
+        });
         toast.success("برچسب ایجاد شد");
       }
       onSaved();
@@ -227,7 +268,13 @@ function TagFormDialog({
         <FormProvider {...methods}>
           <form onSubmit={onSubmit} className="space-y-3">
             <FormInput<Values> name="name" label="نام" required />
-            <FormInput<Values> name="slug" label="شناسه" dir="ltr" required />
+            <FormInput<Values>
+              name="slug"
+              label="شناسه (اختیاری)"
+              hint="در صورت خالی بودن، خودکار از نام تولید می‌شود."
+              dir="ltr"
+            />
+            <FormTextarea<Values> name="description" label="توضیحات" rows={2} />
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 انصراف

@@ -1,28 +1,31 @@
-export type ReportStatus = "pending" | "reviewed" | "actioned" | "dismissed";
+import type { User } from "./auth";
 
+export type ReportStatus = "pending" | "reviewed" | "rejected" | "resolved";
 export type ReportTargetType = "article" | "question" | "answer" | "comment" | "user";
 
 export type Report = {
   id: string;
-  reason: string;
-  description?: string;
+  reporterId: string;
   targetType: ReportTargetType;
   targetId: string;
-  targetTitle?: string;
-  reporterName?: string;
-  isDangerous: boolean;
+  reason: string;
+  description: string | null;
   status: ReportStatus;
-  reviewedBy?: string;
-  reviewedAt?: string | null;
+  reviewedBy: string | null;
   createdAt: string;
+  updatedAt?: string;
+  reporter?: User;
 };
+
+export type ModerationAction = "hide" | "restore" | "delete";
 
 export type ModerationLog = {
   id: string;
+  moderatorId: string;
   action: string;
-  actor: string;
   targetType: string;
   targetId: string;
-  note?: string;
+  reason: string | null;
   createdAt: string;
+  moderator?: User;
 };

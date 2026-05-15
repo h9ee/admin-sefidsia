@@ -8,3 +8,4 @@ export * from "./question";
 export * from "./report";
 export * from "./notification";
 export * from "./dashboard";
+export * from "./gamification";

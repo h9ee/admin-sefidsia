@@ -1,102 +1,70 @@
-import type { PermissionGroup } from "@/types";
+import type { Permission, PermissionGroup } from "@/types";
 
 /**
- * Default permission catalog used in the role editor when the API does not
- * expose `/admin/permissions`. Always merged with what the backend returns.
+ * Backend-mirrored permission catalog (see `back-sefidsia/src/seeders/data/permissions.ts`).
+ * Used as a fallback when grouping `/permissions` results by module.
  */
-export const defaultPermissionGroups: PermissionGroup[] = [
-  {
-    key: "users",
-    label: "کاربران",
-    permissions: [
-      { key: "users.read", label: "مشاهده کاربران" },
-      { key: "users.create", label: "ایجاد کاربر" },
-      { key: "users.update", label: "ویرایش کاربر" },
-      { key: "users.delete", label: "حذف کاربر" },
-    ],
-  },
-  {
-    key: "roles",
-    label: "نقش‌ها",
-    permissions: [
-      { key: "roles.read", label: "مشاهده نقش‌ها" },
-      { key: "roles.create", label: "ایجاد نقش" },
-      { key: "roles.update", label: "ویرایش نقش" },
-      { key: "roles.delete", label: "حذف نقش" },
-    ],
-  },
-  {
-    key: "doctors",
-    label: "پزشکان",
-    permissions: [
-      { key: "doctors.read", label: "مشاهده پزشکان" },
-      { key: "doctors.verify", label: "تایید پزشک" },
-      { key: "doctors.reject", label: "رد پزشک" },
-    ],
-  },
-  {
-    key: "articles",
-    label: "مقالات",
-    permissions: [
-      { key: "articles.read", label: "مشاهده مقالات" },
-      { key: "articles.create", label: "ایجاد مقاله" },
-      { key: "articles.update", label: "ویرایش مقاله" },
-      { key: "articles.delete", label: "حذف مقاله" },
-      { key: "articles.publish", label: "انتشار مقاله" },
-    ],
-  },
-  {
-    key: "questions",
-    label: "سوالات",
-    permissions: [
-      { key: "questions.read", label: "مشاهده سوالات" },
-      { key: "questions.update", label: "ویرایش سوال" },
-      { key: "questions.delete", label: "حذف سوال" },
-      { key: "questions.moderate", label: "نظارت بر سوالات" },
-    ],
-  },
-  {
-    key: "answers",
-    label: "پاسخ‌ها",
-    permissions: [
-      { key: "answers.read", label: "مشاهده پاسخ‌ها" },
-      { key: "answers.update", label: "ویرایش پاسخ" },
-      { key: "answers.delete", label: "حذف پاسخ" },
-    ],
-  },
-  {
-    key: "comments",
-    label: "نظرات",
-    permissions: [
-      { key: "comments.read", label: "مشاهده نظرات" },
-      { key: "comments.update", label: "ویرایش نظر" },
-      { key: "comments.delete", label: "حذف نظر" },
-    ],
-  },
-  {
-    key: "tags",
-    label: "برچسب‌ها",
-    permissions: [
-      { key: "tags.read", label: "مشاهده برچسب‌ها" },
-      { key: "tags.create", label: "ایجاد برچسب" },
-      { key: "tags.update", label: "ویرایش برچسب" },
-      { key: "tags.delete", label: "حذف برچسب" },
-    ],
-  },
-  {
-    key: "reports",
-    label: "گزارش‌ها",
-    permissions: [
-      { key: "reports.read", label: "مشاهده گزارش‌ها" },
-      { key: "reports.manage", label: "مدیریت گزارش‌ها" },
-    ],
-  },
-  {
-    key: "gamification",
-    label: "گیمیفیکیشن",
-    permissions: [
-      { key: "gamification.read", label: "مشاهده گیمیفیکیشن" },
-      { key: "gamification.update", label: "ویرایش گیمیفیکیشن" },
-    ],
-  },
+const fallbackPermissions: Omit<Permission, "id" | "createdAt" | "updatedAt">[] = [
+  { slug: "users.read", name: "مشاهده کاربران", module: "users", action: "read" },
+  { slug: "users.create", name: "ایجاد کاربر", module: "users", action: "create" },
+  { slug: "users.update", name: "ویرایش کاربر", module: "users", action: "update" },
+  { slug: "users.delete", name: "حذف کاربر", module: "users", action: "delete" },
+  { slug: "roles.manage", name: "مدیریت نقش‌ها", module: "roles", action: "manage" },
+  { slug: "permissions.manage", name: "مدیریت دسترسی‌ها", module: "permissions", action: "manage" },
+  { slug: "articles.read", name: "مشاهده مقالات", module: "articles", action: "read" },
+  { slug: "articles.create", name: "ایجاد مقاله", module: "articles", action: "create" },
+  { slug: "articles.update", name: "ویرایش مقاله", module: "articles", action: "update" },
+  { slug: "articles.delete", name: "حذف مقاله", module: "articles", action: "delete" },
+  { slug: "articles.publish", name: "انتشار مقاله", module: "articles", action: "publish" },
+  { slug: "articles.review", name: "بررسی مقاله", module: "articles", action: "review" },
+  { slug: "questions.read", name: "مشاهده سؤالات", module: "questions", action: "read" },
+  { slug: "questions.create", name: "ایجاد سؤال", module: "questions", action: "create" },
+  { slug: "questions.update", name: "ویرایش سؤال", module: "questions", action: "update" },
+  { slug: "questions.delete", name: "حذف سؤال", module: "questions", action: "delete" },
+  { slug: "answers.create", name: "پاسخ‌گویی", module: "answers", action: "create" },
+  { slug: "answers.update", name: "ویرایش پاسخ", module: "answers", action: "update" },
+  { slug: "answers.delete", name: "حذف پاسخ", module: "answers", action: "delete" },
+  { slug: "comments.create", name: "ارسال کامنت", module: "comments", action: "create" },
+  { slug: "comments.update", name: "ویرایش کامنت", module: "comments", action: "update" },
+  { slug: "comments.delete", name: "حذف کامنت", module: "comments", action: "delete" },
+  { slug: "tags.manage", name: "مدیریت برچسب‌ها", module: "tags", action: "manage" },
+  { slug: "doctors.verify", name: "تأیید پزشک", module: "doctors", action: "verify" },
+  { slug: "reports.manage", name: "مدیریت گزارش‌ها", module: "reports", action: "manage" },
+  { slug: "moderation.manage", name: "مدیریت نظارت", module: "moderation", action: "manage" },
+  { slug: "leaderboard.manage", name: "مدیریت لیدربورد", module: "leaderboard", action: "manage" },
+  { slug: "notifications.manage", name: "مدیریت اعلان‌ها", module: "notifications", action: "manage" },
 ];
+
+const MODULE_LABELS: Record<string, string> = {
+  users: "کاربران",
+  roles: "نقش‌ها",
+  permissions: "دسترسی‌ها",
+  articles: "مقالات",
+  questions: "سؤالات",
+  answers: "پاسخ‌ها",
+  comments: "نظرات",
+  tags: "برچسب‌ها",
+  doctors: "پزشکان",
+  reports: "گزارش‌ها",
+  moderation: "نظارت",
+  leaderboard: "لیدربورد",
+  notifications: "اعلان‌ها",
+};
+
+export function groupPermissions(items: Permission[]): PermissionGroup[] {
+  const byModule = new Map<string, Permission[]>();
+  for (const p of items) {
+    const list = byModule.get(p.module) ?? [];
+    list.push(p);
+    byModule.set(p.module, list);
+  }
+  return Array.from(byModule.entries()).map(([key, permissions]) => ({
+    key,
+    label: MODULE_LABELS[key] ?? key,
+    permissions,
+  }));
+}
+
+export const fallbackPermissionGroups: PermissionGroup[] = groupPermissions(
+  fallbackPermissions.map((p, i) => ({ ...p, id: `fb-${i}` })),
+);

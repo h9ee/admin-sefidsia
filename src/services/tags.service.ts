@@ -1,20 +1,31 @@
-import { api } from "@/lib/axios";
-import type { Paginated, Tag } from "@/types";
+import { apiDelete, apiGet, apiList, apiPatch, apiPost } from "@/lib/axios";
+import type { Tag } from "@/types";
+
+export type TagsQuery = {
+  page?: number;
+  limit?: number;
+  q?: string;
+  sortBy?: "usageCount" | "followerCount" | "createdAt" | "name";
+  sortOrder?: "ASC" | "DESC";
+};
 
 export const tagsService = {
-  async list(params: { page?: number; perPage?: number; search?: string } = {}) {
-    const { data } = await api.get<Paginated<Tag>>("/admin/tags", { params });
-    return data;
+  list(params: TagsQuery = {}) {
+    return apiList<Tag>("/tags", params);
   },
-  async create(payload: Pick<Tag, "name" | "slug">) {
-    const { data } = await api.post<Tag>("/admin/tags", payload);
-    return data;
+  get(id: string) {
+    return apiGet<Tag>(`/tags/${id}`);
   },
-  async update(id: string, payload: Partial<Tag>) {
-    const { data } = await api.patch<Tag>(`/admin/tags/${id}`, payload);
-    return data;
+  create(payload: { name: string; slug?: string; description?: string }) {
+    return apiPost<Tag>("/tags", payload);
   },
-  async remove(id: string) {
-    await api.delete(`/admin/tags/${id}`);
+  update(
+    id: string,
+    payload: Partial<{ name: string; slug: string; description: string }>,
+  ) {
+    return apiPatch<Tag>(`/tags/${id}`, payload);
+  },
+  remove(id: string) {
+    return apiDelete(`/tags/${id}`);
   },
 };

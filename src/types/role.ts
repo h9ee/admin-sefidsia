@@ -4,9 +4,9 @@ export type Role = {
   id: string;
   name: string;
   slug: string;
-  description?: string;
-  permissions: Permission[];
-  usersCount?: number;
-  isSystem?: boolean;
+  description?: string | null;
+  isSystem: boolean;
+  permissions?: Permission[];
   createdAt: string;
+  updatedAt?: string;
 };

@@ -1,47 +1,59 @@
-import { api } from "@/lib/axios";
-import type { Paginated, User } from "@/types";
+import { apiDelete, apiGet, apiList, apiPatch, apiPost } from "@/lib/axios";
+import type { Gender, User, UserStatus, UserType } from "@/types";
 
 export type UsersQuery = {
   page?: number;
-  perPage?: number;
-  search?: string;
-  status?: string;
-  role?: string;
-  sort?: string;
+  limit?: number;
+  q?: string;
+  status?: UserStatus;
+  userType?: UserType;
+  sortBy?: "createdAt" | "username" | "xp" | "reputation";
+  sortOrder?: "ASC" | "DESC";
 };
 
-export type UserUpsertPayload = {
-  fullName?: string;
+export type UpdateUserPayload = {
+  firstName?: string;
+  lastName?: string;
+  bio?: string;
+  avatar?: string;
+  gender?: Gender;
+  birthDate?: string;
   email?: string;
-  phone?: string;
-  password?: string;
-  isActive?: boolean;
-  isVerified?: boolean;
-  roles?: string[];
+  mobile?: string;
+  status?: UserStatus;
+  userType?: UserType;
 };
 
 export const usersService = {
-  async list(params: UsersQuery = {}) {
-    const { data } = await api.get<Paginated<User>>("/admin/users", { params });
-    return data;
+  list(params: UsersQuery = {}) {
+    return apiList<User>("/users", params);
   },
-  async get(id: string) {
-    const { data } = await api.get<User>(`/admin/users/${id}`);
-    return data;
+  get(id: string) {
+    return apiGet<User>(`/users/${id}`);
   },
-  async create(payload: UserUpsertPayload & { password: string }) {
-    const { data } = await api.post<User>("/admin/users", payload);
-    return data;
+  update(id: string, payload: UpdateUserPayload) {
+    return apiPatch<User>(`/users/${id}`, payload);
   },
-  async update(id: string, payload: UserUpsertPayload) {
-    const { data } = await api.patch<User>(`/admin/users/${id}`, payload);
-    return data;
+  remove(id: string) {
+    return apiDelete(`/users/${id}`);
   },
-  async remove(id: string) {
-    await api.delete(`/admin/users/${id}`);
+  setStatus(id: string, status: UserStatus) {
+    return apiPatch<User>(`/users/${id}`, { status });
   },
-  async toggleActive(id: string, active: boolean) {
-    const { data } = await api.patch<User>(`/admin/users/${id}/active`, { active });
-    return data;
+  assignRole(userId: string, roleId: string) {
+    return apiPost<null>(`/users/${userId}/roles`, { roleId });
+  },
+  removeRole(userId: string, roleId: string) {
+    return apiDelete(`/users/${userId}/roles/${roleId}`);
+  },
+  /**
+   * Replace user's role set client-side (no batch endpoint on backend):
+   * computes diff against current roles and dispatches add/remove calls.
+   */
+  async setRoles(userId: string, current: string[], next: string[]) {
+    const toAdd = next.filter((r) => !current.includes(r));
+    const toRemove = current.filter((r) => !next.includes(r));
+    await Promise.all(toAdd.map((rid) => this.assignRole(userId, rid)));
+    await Promise.all(toRemove.map((rid) => this.removeRole(userId, rid)));
   },
 };

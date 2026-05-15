@@ -9,14 +9,22 @@ import { Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FormInput } from "@/components/forms/form-input";
+import { FormTextarea } from "@/components/forms/form-textarea";
 import { useAuthStore } from "@/store/auth.store";
 import { usersService } from "@/services/users.service";
 import { parseApiError } from "@/lib/api-error";
 
 const schema = z.object({
-  fullName: z.string().min(2, "نام را وارد کنید"),
-  email: z.string().email("ایمیل معتبر نیست"),
-  phone: z.string().optional(),
+  firstName: z.string().min(1).max(80).optional().or(z.literal("")),
+  lastName: z.string().min(1).max(80).optional().or(z.literal("")),
+  email: z.string().email("ایمیل معتبر نیست").optional().or(z.literal("")),
+  mobile: z
+    .string()
+    .regex(/^09\d{9}$/, "موبایل ایرانی معتبر وارد کنید")
+    .optional()
+    .or(z.literal("")),
+  bio: z.string().max(2000).optional().or(z.literal("")),
+  avatar: z.string().url("لینک معتبر").optional().or(z.literal("")),
 });
 
 type Values = z.infer<typeof schema>;
@@ -27,15 +35,25 @@ export function ProfileForm() {
 
   const methods = useForm<Values>({
     resolver: zodResolver(schema),
-    defaultValues: { fullName: "", email: "", phone: "" },
+    defaultValues: {
+      firstName: "",
+      lastName: "",
+      email: "",
+      mobile: "",
+      bio: "",
+      avatar: "",
+    },
   });
 
   useEffect(() => {
     if (user) {
       methods.reset({
-        fullName: user.fullName,
-        email: user.email,
-        phone: user.phone ?? "",
+        firstName: user.firstName ?? "",
+        lastName: user.lastName ?? "",
+        email: user.email ?? "",
+        mobile: user.mobile ?? "",
+        bio: user.bio ?? "",
+        avatar: user.avatar ?? "",
       });
     }
   }, [user, methods]);
@@ -43,8 +61,16 @@ export function ProfileForm() {
   const onSubmit = methods.handleSubmit(async (values) => {
     if (!user) return;
     try {
-      const updated = await usersService.update(user.id, values);
-      setUser(updated);
+      const clean = (v?: string) => (v && v.length > 0 ? v : undefined);
+      const updated = await usersService.update(user.id, {
+        firstName: clean(values.firstName),
+        lastName: clean(values.lastName),
+        email: clean(values.email),
+        mobile: clean(values.mobile),
+        bio: clean(values.bio),
+        avatar: clean(values.avatar),
+      });
+      setUser({ ...user, ...updated });
       toast.success("اطلاعات بروزرسانی شد");
     } catch (e) {
       toast.error(parseApiError(e).message);
@@ -59,9 +85,17 @@ export function ProfileForm() {
         </CardHeader>
         <CardContent>
           <form onSubmit={onSubmit} className="grid gap-3 sm:grid-cols-2">
-            <FormInput<Values> name="fullName" label="نام و نام خانوادگی" required />
-            <FormInput<Values> name="email" label="ایمیل" type="email" dir="ltr" required />
-            <FormInput<Values> name="phone" label="موبایل" dir="ltr" />
+            <FormInput<Values> name="firstName" label="نام" />
+            <FormInput<Values> name="lastName" label="نام خانوادگی" />
+            <FormInput<Values> name="email" label="ایمیل" type="email" dir="ltr" />
+            <FormInput<Values> name="mobile" label="موبایل" dir="ltr" placeholder="09xxxxxxxxx" />
+            <FormInput<Values> name="avatar" label="آدرس آواتار" dir="ltr" className="sm:col-span-2" />
+            <FormTextarea<Values>
+              name="bio"
+              label="بیوگرافی"
+              rows={3}
+              className="sm:col-span-2"
+            />
             <div className="sm:col-span-2 flex justify-end">
               <Button type="submit" disabled={methods.formState.isSubmitting}>
                 <Save />

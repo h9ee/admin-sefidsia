@@ -1,28 +1,53 @@
-import { api } from "@/lib/axios";
-import type { Paginated, PermissionGroup, Role } from "@/types";
+import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from "@/lib/axios";
+import type { Permission, Role } from "@/types";
+
+export type CreateRolePayload = {
+  name: string;
+  slug: string;
+  description?: string;
+};
 
 export const rolesService = {
-  async list() {
-    const { data } = await api.get<Paginated<Role>>("/admin/roles");
-    return data;
+  list() {
+    return apiGet<Role[]>("/roles");
   },
-  async get(id: string) {
-    const { data } = await api.get<Role>(`/admin/roles/${id}`);
-    return data;
+  get(id: string) {
+    return apiGet<Role>(`/roles/${id}`);
   },
-  async create(payload: Pick<Role, "name" | "slug" | "description" | "permissions">) {
-    const { data } = await api.post<Role>("/admin/roles", payload);
-    return data;
+  create(payload: CreateRolePayload) {
+    return apiPost<Role>("/roles", payload);
   },
-  async update(id: string, payload: Partial<Role>) {
-    const { data } = await api.patch<Role>(`/admin/roles/${id}`, payload);
-    return data;
+  update(id: string, payload: Partial<CreateRolePayload>) {
+    return apiPatch<Role>(`/roles/${id}`, payload);
   },
-  async remove(id: string) {
-    await api.delete(`/admin/roles/${id}`);
+  remove(id: string) {
+    return apiDelete(`/roles/${id}`);
   },
-  async permissionGroups() {
-    const { data } = await api.get<PermissionGroup[]>("/admin/permissions");
-    return data;
+  setPermissions(roleId: string, permissionIds: string[]) {
+    return apiPut<null>(`/roles/${roleId}/permissions`, { permissionIds });
+  },
+  addPermission(roleId: string, permissionId: string) {
+    return apiPost<null>(`/roles/${roleId}/permissions`, { permissionId });
+  },
+  removePermission(roleId: string, permissionId: string) {
+    return apiDelete(`/roles/${roleId}/permissions/${permissionId}`);
+  },
+};
+
+export const permissionsService = {
+  list() {
+    return apiGet<Permission[]>("/permissions");
+  },
+  get(id: string) {
+    return apiGet<Permission>(`/permissions/${id}`);
+  },
+  create(payload: Omit<Permission, "id" | "createdAt" | "updatedAt">) {
+    return apiPost<Permission>("/permissions", payload);
+  },
+  update(id: string, payload: Partial<Omit<Permission, "id">>) {
+    return apiPatch<Permission>(`/permissions/${id}`, payload);
+  },
+  remove(id: string) {
+    return apiDelete(`/permissions/${id}`);
   },
 };

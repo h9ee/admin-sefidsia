@@ -1,44 +1,62 @@
+import type { User } from "./auth";
 import type { Tag } from "./article";
 
-export type QuestionStatus = "open" | "closed" | "hidden" | "review";
+export type QuestionStatus = "open" | "answered" | "closed" | "duplicate" | "hidden";
+export type MedicalWarningLevel = "normal" | "sensitive" | "urgent";
 
 export type Question = {
   id: string;
   title: string;
+  slug: string;
   body: string;
-  isAnonymous: boolean;
-  authorName?: string;
-  authorAvatar?: string | null;
+  userId: string;
+  acceptedAnswerId: string | null;
   status: QuestionStatus;
-  isDangerous: boolean;
-  isTrending: boolean;
-  isHot: boolean;
-  tags: Tag[];
-  answersCount: number;
-  views: number;
+  isAnonymous: boolean;
+  viewCount: number;
+  answerCount: number;
+  voteScore: number;
+  commentCount: number;
+  medicalWarningLevel: MedicalWarningLevel;
+  seoTitle: string | null;
+  seoDescription: string | null;
   createdAt: string;
+  updatedAt?: string;
+  user?: User;
+  tags?: Tag[];
 };
+
+export type AnswerStatus = "active" | "hidden" | "deleted";
 
 export type Answer = {
   id: string;
   questionId: string;
-  questionTitle?: string;
+  userId: string;
   body: string;
-  authorName?: string;
-  authorAvatar?: string | null;
-  isDoctor?: boolean;
-  isAccepted?: boolean;
-  status: "visible" | "hidden" | "review";
+  isDoctorAnswer: boolean;
+  isAccepted: boolean;
+  voteScore: number;
+  commentCount: number;
+  status: AnswerStatus;
   createdAt: string;
+  updatedAt?: string;
+  author?: User;
 };
+
+export type CommentTargetType = "article" | "question" | "answer";
+export type CommentStatus = "active" | "hidden" | "deleted";
 
 export type Comment = {
   id: string;
-  parentType: "article" | "question" | "answer";
-  parentId: string;
+  userId: string;
+  targetType: CommentTargetType;
+  targetId: string;
   body: string;
-  authorName?: string;
-  authorAvatar?: string | null;
-  status: "visible" | "hidden" | "review";
+  status: CommentStatus;
+  parentId: string | null;
+  likeCount: number;
   createdAt: string;
+  updatedAt?: string;
+  author?: User;
+  replies?: Comment[];
 };

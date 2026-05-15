@@ -2,10 +2,10 @@
 
 import { type ReactNode } from "react";
 import { usePermission } from "@/hooks/use-permission";
-import type { Permission } from "@/types";
+import type { PermissionSlug } from "@/types";
 
 type Props = {
-  permission?: Permission | Permission[];
+  permission?: PermissionSlug | PermissionSlug[];
   requireAll?: boolean;
   fallback?: ReactNode;
   children: ReactNode;

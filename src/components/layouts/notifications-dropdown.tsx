@@ -12,31 +12,35 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useNotificationsStore } from "@/store/notifications.store";
+import { useAuthStore } from "@/store/auth.store";
 import { notificationsService } from "@/services/notifications.service";
 import { formatRelativeTime, toPersianDigits } from "@/lib/format";
 import { cn } from "@/lib/cn";
 
 export function NotificationsDropdown() {
   const items = useNotificationsStore((s) => s.items);
+  const unread = useNotificationsStore((s) => s.unread);
   const setItems = useNotificationsStore((s) => s.setItems);
-  const markAllRead = useNotificationsStore((s) => s.markAllRead);
-  const markRead = useNotificationsStore((s) => s.markRead);
-  const unread = useNotificationsStore((s) => s.unreadCount());
+  const setUnread = useNotificationsStore((s) => s.setUnread);
+  const markAllReadStore = useNotificationsStore((s) => s.markAllRead);
+  const markReadStore = useNotificationsStore((s) => s.markRead);
+  const user = useAuthStore((s) => s.user);
 
   useEffect(() => {
+    if (!user) return;
     let active = true;
-    notificationsService
-      .list({ perPage: 8 })
-      .then((res) => {
-        if (active) setItems(res.data);
-      })
-      .catch(() => {
-        // Silent fail; backend may not be ready
-      });
+    Promise.all([
+      notificationsService.list({ limit: 8 }).catch(() => null),
+      notificationsService.unreadCount().catch(() => null),
+    ]).then(([list, count]) => {
+      if (!active) return;
+      if (list) setItems(list.data);
+      if (count) setUnread(count.count);
+    });
     return () => {
       active = false;
     };
-  }, [setItems]);
+  }, [user, setItems, setUnread]);
 
   return (
     <DropdownMenu>
@@ -57,7 +61,7 @@ export function NotificationsDropdown() {
             variant="ghost"
             size="sm"
             onClick={async () => {
-              markAllRead();
+              markAllReadStore();
               await notificationsService.markAllRead().catch(() => undefined);
             }}
             disabled={unread === 0}
@@ -68,7 +72,9 @@ export function NotificationsDropdown() {
         </div>
         <ScrollArea className="max-h-80">
           {items.length === 0 ? (
-            <p className="p-6 text-center text-xs text-muted-foreground">اعلان جدیدی نیست.</p>
+            <p className="p-6 text-center text-xs text-muted-foreground">
+              اعلان جدیدی نیست.
+            </p>
           ) : (
             <ul className="divide-y divide-border">
               {items.map((n) => (
@@ -76,11 +82,11 @@ export function NotificationsDropdown() {
                   key={n.id}
                   className={cn(
                     "flex items-start gap-3 p-3 transition-colors hover:bg-muted/40",
-                    !n.read && "bg-muted/20",
+                    !n.isRead && "bg-muted/20",
                   )}
                   onClick={() => {
-                    if (!n.read) {
-                      markRead(n.id);
+                    if (!n.isRead) {
+                      markReadStore(n.id);
                       notificationsService.markRead(n.id).catch(() => undefined);
                     }
                   }}
@@ -88,7 +94,7 @@ export function NotificationsDropdown() {
                   <span
                     className={cn(
                       "mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full",
-                      n.read ? "bg-border" : "bg-primary",
+                      n.isRead ? "bg-border" : "bg-primary",
                     )}
                   />
                   <div className="flex-1 space-y-0.5">
@@ -101,7 +107,7 @@ export function NotificationsDropdown() {
                         {formatRelativeTime(n.createdAt)}
                       </span>
                       <Badge variant="outline" className="text-[10px]">
-                        {translateKind(n.kind)}
+                        {n.type}
                       </Badge>
                     </div>
                   </div>
@@ -121,23 +127,4 @@ export function NotificationsDropdown() {
       </DropdownMenuContent>
     </DropdownMenu>
   );
-}
-
-function translateKind(k: string): string {
-  switch (k) {
-    case "system":
-      return "سیستم";
-    case "report":
-      return "گزارش";
-    case "user":
-      return "کاربر";
-    case "article":
-      return "مقاله";
-    case "question":
-      return "سوال";
-    case "doctor":
-      return "پزشک";
-    default:
-      return k;
-  }
 }

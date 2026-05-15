@@ -2,19 +2,21 @@
 
 import { useCallback, useMemo } from "react";
 import { useAuthStore } from "@/store/auth.store";
-import { hasAll, hasAny, isDeveloper } from "@/lib/permissions";
-import type { Permission } from "@/types";
+import { extractPermissionSlugs, hasAll, hasAny, isDeveloper } from "@/lib/permissions";
+import type { PermissionSlug } from "@/types";
 
 export function usePermission() {
   const user = useAuthStore((s) => s.user);
-  const permissions = useAuthStore((s) => s.permissions);
+  const permissions = useMemo(() => extractPermissionSlugs(user), [user]);
 
   const can = useCallback(
-    (required: Permission | Permission[] | undefined) => hasAny(user, permissions, required),
+    (required: PermissionSlug | PermissionSlug[] | undefined) =>
+      hasAny(user, permissions, required),
     [user, permissions],
   );
   const canAll = useCallback(
-    (required: Permission | Permission[] | undefined) => hasAll(user, permissions, required),
+    (required: PermissionSlug | PermissionSlug[] | undefined) =>
+      hasAll(user, permissions, required),
     [user, permissions],
   );
 

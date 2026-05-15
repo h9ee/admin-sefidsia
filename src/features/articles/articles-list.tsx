@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Edit, Eye, MoreHorizontal, Plus, Trash2, Send, Archive } from "lucide-react";
+import { Edit, Eye, MoreHorizontal, Plus, Trash2, Send } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,7 +13,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { DataTable, type Column } from "@/components/tables/data-table";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
@@ -22,7 +28,8 @@ import { usePermission } from "@/hooks/use-permission";
 import { articlesService } from "@/services/articles.service";
 import { parseApiError } from "@/lib/api-error";
 import { formatDate } from "@/lib/format";
-import type { Article, Paginated } from "@/types";
+import { displayName } from "@/lib/user";
+import type { Article, ArticleStatus, Paginated } from "@/types";
 
 export function ArticlesList() {
   const { can } = usePermission();
@@ -30,16 +37,24 @@ export function ArticlesList() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("all");
+  const [status, setStatus] = useState<ArticleStatus | "all">("all");
   const [reload, setReload] = useState(0);
 
   useEffect(() => {
     let active = true;
     setLoading(true);
     articlesService
-      .list({ page, perPage: 10, search, status: status === "all" ? undefined : status })
+      .list({
+        page,
+        limit: 10,
+        q: search || undefined,
+        status: status === "all" ? undefined : status,
+      })
       .then((res) => active && setData(res))
-      .catch(() => active && setData({ data: [], meta: { total: 0, page, perPage: 10, totalPages: 1 } }))
+      .catch(() =>
+        active &&
+        setData({ data: [], meta: { page, limit: 10, total: 0, totalPages: 1 } }),
+      )
       .finally(() => active && setLoading(false));
     return () => {
       active = false;
@@ -54,20 +69,27 @@ export function ArticlesList() {
         cell: (a) => (
           <div className="flex items-start gap-3">
             <div className="h-12 w-16 shrink-0 rounded-md border border-border bg-muted">
-              {a.cover ? (
+              {a.coverImage ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={a.cover} alt="" className="h-full w-full rounded-md object-cover" />
+                <img
+                  src={a.coverImage}
+                  alt=""
+                  className="h-full w-full rounded-md object-cover"
+                />
               ) : null}
             </div>
             <div className="leading-tight">
-              <Link href={`/articles/${a.id}`} className="line-clamp-1 text-sm font-medium hover:underline">
+              <Link
+                href={`/articles/${a.slug}`}
+                className="line-clamp-1 text-sm font-medium hover:underline"
+              >
                 {a.title}
               </Link>
               <p className="mt-0.5 line-clamp-1 text-[11px] text-muted-foreground" dir="ltr">
                 {a.slug}
               </p>
               <div className="mt-1 flex flex-wrap gap-1">
-                {a.tags.slice(0, 3).map((t) => (
+                {a.tags?.slice(0, 3).map((t) => (
                   <Badge key={t.id} variant="outline" className="text-[10px]">
                     {t.name}
                   </Badge>
@@ -80,17 +102,12 @@ export function ArticlesList() {
       {
         key: "author",
         header: "نویسنده",
-        cell: (a) => <span className="text-xs">{a.authorName ?? "—"}</span>,
+        cell: (a) => <span className="text-xs">{displayName(a.author)}</span>,
       },
       {
-        key: "doctorReview",
+        key: "medicalReview",
         header: "بازبینی پزشک",
-        cell: (a) =>
-          a.doctorReviewStatus ? (
-            <StatusBadge status={a.doctorReviewStatus} />
-          ) : (
-            <span className="text-xs text-muted-foreground">—</span>
-          ),
+        cell: (a) => <StatusBadge status={a.medicalReviewStatus} />,
       },
       {
         key: "status",
@@ -116,7 +133,7 @@ export function ArticlesList() {
       data={data?.data ?? []}
       total={data?.meta.total}
       page={page}
-      perPage={data?.meta.perPage ?? 10}
+      perPage={data?.meta.limit ?? 10}
       onPageChange={setPage}
       search={search}
       onSearch={(q) => {
@@ -130,7 +147,7 @@ export function ArticlesList() {
         <Select
           value={status}
           onValueChange={(v) => {
-            setStatus(v);
+            setStatus(v as ArticleStatus | "all");
             setPage(1);
           }}
         >
@@ -140,8 +157,9 @@ export function ArticlesList() {
           <SelectContent>
             <SelectItem value="all">همه وضعیت‌ها</SelectItem>
             <SelectItem value="draft">پیش‌نویس</SelectItem>
-            <SelectItem value="review">نیازمند بازبینی</SelectItem>
+            <SelectItem value="pending_review">نیازمند بازبینی</SelectItem>
             <SelectItem value="published">منتشر شده</SelectItem>
+            <SelectItem value="rejected">رد شده</SelectItem>
             <SelectItem value="archived">بایگانی</SelectItem>
           </SelectContent>
         </Select>
@@ -165,14 +183,14 @@ export function ArticlesList() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem asChild>
-              <Link href={`/articles/${a.id}`}>
+              <Link href={`/articles/${a.slug}`}>
                 <Eye className="h-4 w-4" />
                 مشاهده / ویرایش
               </Link>
             </DropdownMenuItem>
             {can("articles.update") ? (
               <DropdownMenuItem asChild>
-                <Link href={`/articles/${a.id}`}>
+                <Link href={`/articles/${a.slug}`}>
                   <Edit className="h-4 w-4" />
                   ویرایش
                 </Link>
@@ -182,9 +200,9 @@ export function ArticlesList() {
               <DropdownMenuItem
                 onClick={async () => {
                   try {
-                    await articlesService.setStatus(a.id, "published");
+                    await articlesService.publish(a.id);
                     setReload((x) => x + 1);
-                    toast.success("مقاله منتشر شد");
+                    toast.success("مقاله برای انتشار ارسال شد");
                   } catch (e) {
                     toast.error(parseApiError(e).message);
                   }
@@ -192,22 +210,6 @@ export function ArticlesList() {
               >
                 <Send className="h-4 w-4" />
                 انتشار
-              </DropdownMenuItem>
-            ) : null}
-            {can("articles.update") && a.status !== "archived" ? (
-              <DropdownMenuItem
-                onClick={async () => {
-                  try {
-                    await articlesService.setStatus(a.id, "archived");
-                    setReload((x) => x + 1);
-                    toast.success("مقاله بایگانی شد");
-                  } catch (e) {
-                    toast.error(parseApiError(e).message);
-                  }
-                }}
-              >
-                <Archive className="h-4 w-4" />
-                بایگانی
               </DropdownMenuItem>
             ) : null}
             {can("articles.delete") ? (

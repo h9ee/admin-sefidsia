@@ -1,33 +1,28 @@
-import { api } from "@/lib/axios";
-import type { Doctor, Paginated } from "@/types";
+import { apiGet, apiList, apiPost } from "@/lib/axios";
+import type { Doctor, DoctorVerificationStatus } from "@/types";
 
 export type DoctorsQuery = {
   page?: number;
-  perPage?: number;
-  search?: string;
-  status?: string;
+  limit?: number;
+  q?: string;
   specialty?: string;
+  city?: string;
+  verificationStatus?: DoctorVerificationStatus;
+  sortBy?: "rankScore" | "createdAt" | "experienceYears" | "ratingAverage";
+  sortOrder?: "ASC" | "DESC";
 };
 
 export const doctorsService = {
-  async list(params: DoctorsQuery = {}) {
-    const { data } = await api.get<Paginated<Doctor>>("/admin/doctors", { params });
-    return data;
+  list(params: DoctorsQuery = {}) {
+    return apiList<Doctor>("/doctors", params);
   },
-  async get(id: string) {
-    const { data } = await api.get<Doctor>(`/admin/doctors/${id}`);
-    return data;
+  get(id: string) {
+    return apiGet<Doctor>(`/doctors/${id}`);
   },
-  async verify(id: string, note?: string) {
-    const { data } = await api.post<Doctor>(`/admin/doctors/${id}/verify`, { note });
-    return data;
+  leaderboard(limit = 50) {
+    return apiGet<Doctor[]>("/doctors/leaderboard", { limit });
   },
-  async reject(id: string, note?: string) {
-    const { data } = await api.post<Doctor>(`/admin/doctors/${id}/reject`, { note });
-    return data;
-  },
-  async ranking() {
-    const { data } = await api.get<Doctor[]>("/admin/doctors/ranking");
-    return data;
+  verify(id: string, status: "approved" | "rejected", reason?: string) {
+    return apiPost<Doctor>(`/doctors/${id}/verify`, { status, reason });
   },
 };

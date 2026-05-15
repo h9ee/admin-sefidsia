@@ -1,15 +1,17 @@
-import { api } from "@/lib/axios";
-import type { Notification, Paginated } from "@/types";
+import { apiGet, apiList, apiPost } from "@/lib/axios";
+import type { Notification } from "@/types";
 
 export const notificationsService = {
-  async list(params: { page?: number; perPage?: number; read?: boolean } = {}) {
-    const { data } = await api.get<Paginated<Notification>>("/admin/notifications", { params });
-    return data;
+  list(params: { page?: number; limit?: number; unreadOnly?: boolean } = {}) {
+    return apiList<Notification>("/notifications", params);
   },
-  async markAllRead() {
-    await api.post("/admin/notifications/read-all");
+  unreadCount() {
+    return apiGet<{ count: number }>("/notifications/unread-count");
   },
-  async markRead(id: string) {
-    await api.post(`/admin/notifications/${id}/read`);
+  markRead(id: string) {
+    return apiPost<null>(`/notifications/${id}/read`);
+  },
+  markAllRead() {
+    return apiPost<null>("/notifications/read-all");
   },
 };

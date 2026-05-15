@@ -1,24 +1,34 @@
-export type ApiResponse<T> = {
+export type ApiEnvelope<T> = {
+  success: true;
+  message: string;
   data: T;
-  message?: string;
+  meta?: PaginationMeta;
+};
+
+export type ApiFailureEnvelope = {
+  success: false;
+  message: string;
+  code: string;
+  details?: unknown;
+};
+
+export type PaginationMeta = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
 };
 
 export type Paginated<T> = {
   data: T[];
-  meta: {
-    total: number;
-    page: number;
-    perPage: number;
-    totalPages: number;
-  };
+  meta: PaginationMeta;
 };
 
 export type ApiError = {
   status: number;
   message: string;
-  errors?: Record<string, string[]>;
+  code?: string;
+  details?: unknown;
 };
 
-export type Id = string | number;
-
-export type Status = "active" | "inactive" | "pending" | "banned";
+export type Id = string;

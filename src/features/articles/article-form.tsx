@@ -13,109 +13,102 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FormInput } from "@/components/forms/form-input";
 import { FormTextarea } from "@/components/forms/form-textarea";
 import { FormMultiSelect } from "@/components/forms/form-multi-select";
-import { FormSelect } from "@/components/forms/form-select";
-import { FormFileUpload } from "@/components/forms/form-file-upload";
+import { FormSwitch } from "@/components/forms/form-switch";
 import { FormRichEditor } from "@/components/forms/form-rich-editor";
 import { articlesService } from "@/services/articles.service";
+import { tagsService } from "@/services/tags.service";
 import { parseApiError } from "@/lib/api-error";
-import { slugify } from "@/lib/format";
-import type { Category, Tag } from "@/types";
+import type { Tag } from "@/types";
 
 const schema = z.object({
-  title: z.string().min(3, "عنوان حداقل ۳ کاراکتر است"),
-  slug: z.string().min(2, "شناسه الزامی است"),
-  excerpt: z.string().optional(),
-  content: z.string().min(10, "محتوای مقاله الزامی است"),
-  status: z.enum(["draft", "review", "published", "archived"]),
-  cover: z.any().optional(),
-  category: z.string().optional(),
-  tags: z.array(z.string()),
-  seoTitle: z.string().optional(),
-  seoDescription: z.string().optional(),
+  title: z.string().min(5, "عنوان حداقل ۵ کاراکتر است"),
+  summary: z.string().max(500).optional().or(z.literal("")),
+  content: z.string().min(50, "محتوا حداقل ۵۰ کاراکتر است"),
+  coverImage: z.string().url("لینک معتبر وارد کنید").optional().or(z.literal("")),
+  tagIds: z.array(z.string()),
+  seoTitle: z.string().max(160).optional().or(z.literal("")),
+  seoDescription: z.string().max(255).optional().or(z.literal("")),
+  canonicalUrl: z.string().url().optional().or(z.literal("")),
+  requireMedicalReview: z.boolean(),
 });
 
 type Values = z.infer<typeof schema>;
 
-export function ArticleForm({ id }: { id?: string }) {
-  const isEdit = !!id;
+export function ArticleForm({ slug }: { slug?: string }) {
+  const isEdit = !!slug;
   const router = useRouter();
   const [tags, setTags] = useState<Tag[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [articleId, setArticleId] = useState<string | null>(null);
 
   const methods = useForm<Values>({
     resolver: zodResolver(schema),
     defaultValues: {
       title: "",
-      slug: "",
-      excerpt: "",
+      summary: "",
       content: "",
-      status: "draft",
-      tags: [],
-      category: undefined,
+      coverImage: "",
+      tagIds: [],
       seoTitle: "",
       seoDescription: "",
+      canonicalUrl: "",
+      requireMedicalReview: false,
     },
   });
 
   useEffect(() => {
-    Promise.all([articlesService.listTags(), articlesService.listCategories()])
-      .then(([t, c]) => {
-        setTags(t);
-        setCategories(c);
-      })
+    tagsService
+      .list({ limit: 100 })
+      .then((res) => setTags(res.data))
       .catch(() => undefined);
   }, []);
 
   useEffect(() => {
-    if (!id) return;
+    if (!slug) return;
     articlesService
-      .get(id)
-      .then((a) =>
+      .getBySlug(slug)
+      .then((a) => {
+        setArticleId(a.id);
         methods.reset({
           title: a.title,
-          slug: a.slug,
-          excerpt: a.excerpt ?? "",
+          summary: a.summary ?? "",
           content: a.content,
-          status: a.status,
-          cover: a.cover ?? undefined,
-          category: a.category?.id,
-          tags: a.tags.map((t) => t.id),
+          coverImage: a.coverImage ?? "",
+          tagIds: (a.tags ?? []).map((t) => t.id),
           seoTitle: a.seoTitle ?? "",
           seoDescription: a.seoDescription ?? "",
-        }),
-      )
+          canonicalUrl: a.canonicalUrl ?? "",
+          requireMedicalReview: a.medicalReviewStatus !== "not_required",
+        });
+      })
       .catch((e) => toast.error(parseApiError(e).message));
-  }, [id, methods]);
+  }, [slug, methods]);
 
-  const title = methods.watch("title");
-  useEffect(() => {
-    if (!isEdit && title) {
-      methods.setValue("slug", slugify(title), { shouldDirty: true });
-    }
-  }, [title, isEdit, methods]);
-
-  const submit = (publish?: boolean) =>
+  const submit = (publishAfter?: boolean) =>
     methods.handleSubmit(async (values) => {
       try {
-        const payload: Record<string, unknown> = {
+        const clean = (v?: string) => (v && v.length > 0 ? v : undefined);
+        const payload = {
           title: values.title,
-          slug: values.slug,
-          excerpt: values.excerpt,
+          summary: clean(values.summary),
           content: values.content,
-          status: publish ? "published" : values.status,
-          categoryId: values.category,
-          tagIds: values.tags,
-          seoTitle: values.seoTitle,
-          seoDescription: values.seoDescription,
+          coverImage: clean(values.coverImage),
+          tagIds: values.tagIds,
+          seoTitle: clean(values.seoTitle),
+          seoDescription: clean(values.seoDescription),
+          canonicalUrl: clean(values.canonicalUrl),
+          requireMedicalReview: values.requireMedicalReview,
         };
-        const article = isEdit
-          ? await articlesService.update(id!, payload)
+
+        const article = isEdit && articleId
+          ? await articlesService.update(articleId, payload)
           : await articlesService.create(payload);
 
-        if (values.cover instanceof File) {
-          await articlesService.uploadCover(article.id, values.cover);
+        if (publishAfter) {
+          await articlesService.publish(article.id);
+          toast.success("مقاله برای انتشار ارسال شد");
+        } else {
+          toast.success(isEdit ? "مقاله بروزرسانی شد" : "مقاله ذخیره شد");
         }
-        toast.success(publish ? "مقاله منتشر شد" : "مقاله ذخیره شد");
         router.push("/articles");
       } catch (e) {
         toast.error(parseApiError(e).message);
@@ -133,18 +126,11 @@ export function ArticleForm({ id }: { id?: string }) {
               </CardHeader>
               <CardContent className="space-y-3">
                 <FormInput<Values> name="title" label="عنوان" required />
-                <FormInput<Values>
-                  name="slug"
-                  label="شناسه (slug)"
-                  hint="در آدرس URL استفاده می‌شود"
-                  dir="ltr"
-                  required
-                />
                 <FormTextarea<Values>
-                  name="excerpt"
+                  name="summary"
                   label="چکیده"
                   rows={2}
-                  hint="حداکثر ۲۰۰ کاراکتر"
+                  hint="حداکثر ۵۰۰ کاراکتر"
                 />
                 <FormRichEditor<Values> name="content" label="متن کامل" required />
               </CardContent>
@@ -160,15 +146,18 @@ export function ArticleForm({ id }: { id?: string }) {
                   <CardContent className="space-y-3 pt-5">
                     <FormInput<Values> name="seoTitle" label="عنوان سئو" />
                     <FormTextarea<Values> name="seoDescription" label="توضیحات سئو" rows={3} />
+                    <FormInput<Values> name="canonicalUrl" label="لینک کنونیکال" dir="ltr" />
                   </CardContent>
                 </Card>
               </TabsContent>
               <TabsContent value="meta">
                 <Card>
                   <CardContent className="space-y-3 pt-5">
-                    <p className="text-xs text-muted-foreground">
-                      تنظیمات بیشتر بر اساس نیاز در آینده اضافه خواهد شد.
-                    </p>
+                    <FormSwitch<Values>
+                      name="requireMedicalReview"
+                      label="نیاز به بازبینی پزشک"
+                      description="پس از فعال‌سازی، مقاله پیش از انتشار به بازبینی پزشک ارسال می‌شود."
+                    />
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -181,16 +170,6 @@ export function ArticleForm({ id }: { id?: string }) {
                 <CardTitle>انتشار</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <FormSelect<Values>
-                  name="status"
-                  label="وضعیت"
-                  options={[
-                    { label: "پیش‌نویس", value: "draft" },
-                    { label: "نیازمند بازبینی", value: "review" },
-                    { label: "منتشر شده", value: "published" },
-                    { label: "بایگانی", value: "archived" },
-                  ]}
-                />
                 <Button type="button" className="w-full" onClick={submit(false)}>
                   <Save />
                   ذخیره
@@ -202,7 +181,7 @@ export function ArticleForm({ id }: { id?: string }) {
                   onClick={submit(true)}
                 >
                   <Send />
-                  انتشار سریع
+                  ذخیره و انتشار
                 </Button>
               </CardContent>
             </Card>
@@ -212,23 +191,23 @@ export function ArticleForm({ id }: { id?: string }) {
                 <CardTitle>تصویر شاخص</CardTitle>
               </CardHeader>
               <CardContent>
-                <FormFileUpload<Values> name="cover" label="کاور" />
+                <FormInput<Values>
+                  name="coverImage"
+                  label="آدرس تصویر"
+                  dir="ltr"
+                  placeholder="https://…"
+                />
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle>دسته‌بندی و برچسب</CardTitle>
+                <CardTitle>برچسب‌ها</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
-                <FormSelect<Values>
-                  name="category"
-                  label="دسته‌بندی"
-                  options={categories.map((c) => ({ label: c.name, value: c.id }))}
-                />
+              <CardContent>
                 <FormMultiSelect<Values>
-                  name="tags"
-                  label="برچسب‌ها"
+                  name="tagIds"
+                  label="انتخاب برچسب‌ها"
                   options={tags.map((t) => ({ label: t.name, value: t.id }))}
                 />
               </CardContent>

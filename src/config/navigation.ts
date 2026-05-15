@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import type { Permission } from "@/types";
+import type { PermissionSlug } from "@/types";
 import {
   LayoutDashboard,
   Users,
@@ -21,10 +21,15 @@ export type NavItem = {
   label: string;
   href?: string;
   icon: ComponentType<{ className?: string }>;
-  permission?: Permission | Permission[];
+  permission?: PermissionSlug | PermissionSlug[];
   children?: NavItem[];
 };
 
+/**
+ * Navigation tree. Permission slugs mirror the backend seeder
+ * (`back-sefidsia/src/seeders/data/permissions.ts`). Items without a
+ * `permission` are visible to any authenticated user (e.g. dashboard, settings).
+ */
 export const navigation: NavItem[] = [
   {
     label: "داشبورد",
@@ -36,12 +41,12 @@ export const navigation: NavItem[] = [
     icon: Users,
     children: [
       { label: "همه کاربران", href: "/users", icon: Users, permission: "users.read" },
-      { label: "نقش‌ها", href: "/roles", icon: ShieldCheck, permission: "roles.read" },
+      { label: "نقش‌ها", href: "/roles", icon: ShieldCheck, permission: "roles.manage" },
       {
         label: "دسترسی‌ها",
         href: "/permissions",
         icon: KeyRound,
-        permission: "permissions.read",
+        permission: "permissions.manage",
       },
     ],
   },
@@ -49,24 +54,23 @@ export const navigation: NavItem[] = [
     label: "پزشکان",
     href: "/doctors",
     icon: Stethoscope,
-    permission: "doctors.read",
   },
   {
     label: "محتوا",
     icon: FileText,
     children: [
-      { label: "مقالات", href: "/articles", icon: FileText, permission: "articles.read" },
-      { label: "سوالات", href: "/questions", icon: MessageSquare, permission: "questions.read" },
-      { label: "پاسخ‌ها", href: "/answers", icon: Reply, permission: "answers.read" },
-      { label: "نظرات", href: "/comments", icon: MessageCircle, permission: "comments.read" },
-      { label: "برچسب‌ها", href: "/tags", icon: Tags, permission: "tags.read" },
+      { label: "مقالات", href: "/articles", icon: FileText },
+      { label: "سوالات", href: "/questions", icon: MessageSquare },
+      { label: "پاسخ‌ها", href: "/answers", icon: Reply },
+      { label: "نظرات", href: "/comments", icon: MessageCircle },
+      { label: "برچسب‌ها", href: "/tags", icon: Tags },
     ],
   },
   {
     label: "گزارش‌ها و نظارت",
     href: "/reports",
     icon: Flag,
-    permission: ["reports.read", "reports.manage"],
+    permission: ["reports.manage", "moderation.manage"],
   },
   {
     label: "اعلان‌ها",
@@ -77,7 +81,6 @@ export const navigation: NavItem[] = [
     label: "گیمیفیکیشن",
     href: "/gamification",
     icon: Trophy,
-    permission: "gamification.read",
   },
   {
     label: "تنظیمات",

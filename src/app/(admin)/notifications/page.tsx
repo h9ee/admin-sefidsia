@@ -20,18 +20,20 @@ export default function NotificationsPage() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("all");
 
-  const load = (read?: boolean) => {
+  const load = (unreadOnly?: boolean) => {
     setLoading(true);
     notificationsService
-      .list({ perPage: 50, read })
+      .list({ limit: 50, unreadOnly })
       .then((res) => setItems(res.data))
       .catch(() => setItems([]))
       .finally(() => setLoading(false));
   };
 
   useEffect(() => {
-    load(tab === "all" ? undefined : tab === "unread" ? false : true);
+    load(tab === "unread" ? true : undefined);
   }, [tab]);
+
+  const filtered = tab === "read" ? items.filter((i) => i.isRead) : items;
 
   return (
     <>
@@ -43,7 +45,7 @@ export default function NotificationsPage() {
             variant="outline"
             onClick={async () => {
               await notificationsService.markAllRead().catch(() => undefined);
-              setItems((cur) => cur.map((n) => ({ ...n, read: true })));
+              setItems((cur) => cur.map((n) => ({ ...n, isRead: true })));
               toast.success("همه اعلان‌ها خوانده شد");
             }}
           >
@@ -68,7 +70,7 @@ export default function NotificationsPage() {
                     <Skeleton key={i} className="h-12 w-full" />
                   ))}
                 </div>
-              ) : items.length === 0 ? (
+              ) : filtered.length === 0 ? (
                 <EmptyState
                   className="m-6 border-0"
                   title="اعلانی وجود ندارد"
@@ -76,27 +78,29 @@ export default function NotificationsPage() {
                 />
               ) : (
                 <ul className="divide-y divide-border">
-                  {items.map((n) => (
+                  {filtered.map((n) => (
                     <li
                       key={n.id}
                       className={cn(
                         "flex items-start gap-3 p-4 transition-colors hover:bg-muted/30",
-                        !n.read && "bg-muted/15",
+                        !n.isRead && "bg-muted/15",
                       )}
                     >
                       <span
                         className={cn(
                           "mt-1.5 h-2 w-2 shrink-0 rounded-full",
-                          n.read ? "bg-border" : "bg-primary",
+                          n.isRead ? "bg-border" : "bg-primary",
                         )}
                       />
                       <div className="flex-1 space-y-0.5">
                         <p className="text-sm font-medium">{n.title}</p>
-                        {n.body ? <p className="text-xs text-muted-foreground">{n.body}</p> : null}
+                        {n.body ? (
+                          <p className="text-xs text-muted-foreground">{n.body}</p>
+                        ) : null}
                         <div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground">
                           <span>{formatRelativeTime(n.createdAt)}</span>
                           <Badge variant="outline" className="text-[10px]">
-                            {n.kind}
+                            {n.type}
                           </Badge>
                         </div>
                       </div>

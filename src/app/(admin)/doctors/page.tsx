@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { DoctorsList } from "@/features/doctors/doctors-list";
 import { doctorsService } from "@/services/doctors.service";
 import { formatNumber, toPersianDigits } from "@/lib/format";
+import { displayName, userInitials } from "@/lib/user";
 import type { Doctor } from "@/types";
 
 export default function DoctorsPage() {
@@ -18,14 +19,14 @@ export default function DoctorsPage() {
 
   useEffect(() => {
     doctorsService
-      .ranking()
+      .leaderboard(50)
       .then(setRanking)
       .catch(() => setRanking([]))
       .finally(() => setLoading(false));
   }, []);
 
-  const verified = ranking.filter((d) => d.status === "verified").length;
-  const pending = ranking.filter((d) => d.status === "pending").length;
+  const verified = ranking.filter((d) => d.verificationStatus === "approved").length;
+  const pending = ranking.filter((d) => d.verificationStatus === "pending").length;
 
   return (
     <>
@@ -37,7 +38,11 @@ export default function DoctorsPage() {
         <StatCard label="کل پزشکان" value={ranking.length} icon={Stethoscope} />
         <StatCard label="تایید شده" value={verified} icon={BadgeCheck} />
         <StatCard label="در انتظار" value={pending} icon={Hourglass} />
-        <StatCard label="فعال‌ترین" value={ranking[0]?.fullName ?? "—"} icon={Trophy} />
+        <StatCard
+          label="فعال‌ترین"
+          value={ranking[0] ? displayName(ranking[0].user) : "—"}
+          icon={Trophy}
+        />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
@@ -68,15 +73,17 @@ export default function DoctorsPage() {
                     {toPersianDigits(idx + 1)}
                   </span>
                   <Avatar className="h-8 w-8">
-                    {d.avatar ? <AvatarImage src={d.avatar} alt={d.fullName} /> : null}
-                    <AvatarFallback>{d.fullName.slice(0, 1)}</AvatarFallback>
+                    {d.user?.avatar ? (
+                      <AvatarImage src={d.user.avatar} alt={displayName(d.user)} />
+                    ) : null}
+                    <AvatarFallback>{userInitials(d.user)}</AvatarFallback>
                   </Avatar>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{d.fullName}</p>
+                    <p className="truncate text-sm font-medium">{displayName(d.user)}</p>
                     <p className="truncate text-[11px] text-muted-foreground">{d.specialty}</p>
                   </div>
                   <span className="text-xs text-muted-foreground">
-                    {formatNumber(d.answersCount ?? 0)} پاسخ
+                    {formatNumber(d.answerCount)} پاسخ
                   </span>
                 </div>
               ))

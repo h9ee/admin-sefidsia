@@ -5,17 +5,23 @@ import type { Notification } from "@/types";
 
 type NotificationsState = {
   items: Notification[];
+  unread: number;
   setItems: (items: Notification[]) => void;
+  setUnread: (n: number) => void;
   markAllRead: () => void;
   markRead: (id: string) => void;
-  unreadCount: () => number;
 };
 
 export const useNotificationsStore = create<NotificationsState>((set, get) => ({
   items: [],
-  setItems: (items) => set({ items }),
-  markAllRead: () => set({ items: get().items.map((i) => ({ ...i, read: true })) }),
-  markRead: (id) =>
-    set({ items: get().items.map((i) => (i.id === id ? { ...i, read: true } : i)) }),
-  unreadCount: () => get().items.filter((i) => !i.read).length,
+  unread: 0,
+  setItems: (items) =>
+    set({ items, unread: items.filter((i) => !i.isRead).length }),
+  setUnread: (n) => set({ unread: n }),
+  markAllRead: () =>
+    set({ items: get().items.map((i) => ({ ...i, isRead: true })), unread: 0 }),
+  markRead: (id) => {
+    const items = get().items.map((i) => (i.id === id ? { ...i, isRead: true } : i));
+    set({ items, unread: items.filter((i) => !i.isRead).length });
+  },
 }));

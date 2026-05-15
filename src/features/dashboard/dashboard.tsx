@@ -9,48 +9,60 @@ import {
   Stethoscope,
   Users,
   CircleAlert,
+  Tags as TagsIcon,
+  Hourglass,
 } from "lucide-react";
 import { motion } from "framer-motion";
-import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatCard } from "@/components/shared/stat-card";
-import { StatusBadge } from "@/components/shared/status-badge";
 import { AreaChart } from "@/components/charts/area-chart";
 import { BarChart } from "@/components/charts/bar-chart";
 import { dashboardService } from "@/services/dashboard.service";
-import { formatRelativeTime } from "@/lib/format";
-import type { DashboardData } from "@/types";
-
-const fallback: DashboardData = {
-  stats: { users: 0, articles: 0, questions: 0, doctors: 0, reports: 0, pendingDoctors: 0 },
-  trafficLast7Days: [],
-  contentBreakdown: [],
-  latestUsers: [],
-  latestArticles: [],
-  latestReports: [],
-  activity: [],
-};
+import { toPersianDigits } from "@/lib/format";
+import type { ChartPoint, DashboardData, StatsRange } from "@/types";
 
 export function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
+  const [stats, setStats] = useState<StatsRange | null>(null);
   const [loading, setLoading] = useState(true);
+  const [rangeDays, setRangeDays] = useState(30);
 
   useEffect(() => {
     let active = true;
-    dashboardService
-      .overview()
-      .then((d) => active && setData(d))
-      .catch(() => active && setData(fallback))
+    Promise.all([
+      dashboardService.overview().catch(() => null),
+      dashboardService.stats(rangeDays).catch(() => null),
+    ])
+      .then(([d, s]) => {
+        if (!active) return;
+        setData(d);
+        setStats(s);
+      })
       .finally(() => active && setLoading(false));
     return () => {
       active = false;
     };
-  }, []);
+  }, [rangeDays]);
 
-  const stats = data?.stats ?? fallback.stats;
+  const contentBreakdown: ChartPoint[] = data
+    ? [
+        { label: "مقاله", value: data.articles.total },
+        { label: "سؤال", value: data.qa.totalQuestions },
+        { label: "پاسخ", value: data.qa.totalAnswers },
+        { label: "نظر", value: data.community.comments },
+        { label: "برچسب", value: data.community.tags },
+      ]
+    : [];
+
+  const trafficSeries: ChartPoint[] = stats
+    ? [
+        { label: "کاربران", value: stats.counts.users },
+        { label: "مقالات", value: stats.counts.articles },
+        { label: "سؤالات", value: stats.counts.questions },
+        { label: "پاسخ‌ها", value: stats.counts.answers },
+      ]
+    : [];
 
   return (
     <div className="space-y-6">
@@ -60,28 +72,76 @@ export function Dashboard() {
         transition={{ duration: 0.25 }}
         className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6"
       >
-        <StatCard label="کاربران" value={stats.users} icon={Users} />
-        <StatCard label="پزشکان" value={stats.doctors} icon={Stethoscope} />
-        <StatCard label="مقالات" value={stats.articles} icon={FileText} />
-        <StatCard label="سوالات" value={stats.questions} icon={MessageSquare} />
-        <StatCard label="گزارش‌ها" value={stats.reports} icon={Flag} />
-        <StatCard label="در انتظار تایید" value={stats.pendingDoctors} icon={CircleAlert} />
+        <StatCard
+          label="کل کاربران"
+          value={data?.users.total ?? 0}
+          icon={Users}
+          delta={
+            data ? (
+              <span>
+                {toPersianDigits(data.users.newLast7d)} عضو جدید ۷ روز اخیر
+              </span>
+            ) : null
+          }
+        />
+        <StatCard
+          label="پزشکان فعال"
+          value={data?.doctors.active ?? 0}
+          icon={Stethoscope}
+        />
+        <StatCard
+          label="در انتظار تأیید"
+          value={data?.doctors.pending ?? 0}
+          icon={Hourglass}
+        />
+        <StatCard
+          label="مقالات منتشر شده"
+          value={data?.articles.published ?? 0}
+          icon={FileText}
+        />
+        <StatCard
+          label="سوالات"
+          value={data?.qa.totalQuestions ?? 0}
+          icon={MessageSquare}
+        />
+        <StatCard
+          label="گزارش‌های جدید"
+          value={data?.moderation.pendingReports ?? 0}
+          icon={Flag}
+        />
       </motion.div>
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
-              <CardTitle>روند بازدید ۷ روز اخیر</CardTitle>
-              <CardDescription>تعداد کل بازدیدها بر اساس روز</CardDescription>
+              <CardTitle>روند فعالیت {toPersianDigits(rangeDays)} روز اخیر</CardTitle>
+              <CardDescription>
+                مجموع کاربران، مقالات، سؤالات و پاسخ‌های ایجاد شده در بازه
+              </CardDescription>
             </div>
-            <Activity className="h-4 w-4 text-muted-foreground" />
+            <div className="flex items-center gap-1">
+              {[7, 30, 90].map((d) => (
+                <button
+                  key={d}
+                  onClick={() => setRangeDays(d)}
+                  className={`rounded-md border px-2.5 py-1 text-[11px] transition-colors ${
+                    d === rangeDays
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border text-muted-foreground hover:bg-accent"
+                  }`}
+                >
+                  {toPersianDigits(d)} روز
+                </button>
+              ))}
+              <Activity className="ms-1 h-4 w-4 text-muted-foreground" />
+            </div>
           </CardHeader>
           <CardContent className="text-foreground">
             {loading ? (
               <Skeleton className="h-[220px] w-full" />
             ) : (
-              <AreaChart data={data?.trafficLast7Days ?? []} />
+              <AreaChart data={trafficSeries} />
             )}
           </CardContent>
         </Card>
@@ -89,157 +149,67 @@ export function Dashboard() {
         <Card>
           <CardHeader>
             <CardTitle>توزیع محتوا</CardTitle>
-            <CardDescription>تفکیک کلی محتوای فعال</CardDescription>
+            <CardDescription>وضعیت کلی محتوا در پلتفرم</CardDescription>
           </CardHeader>
           <CardContent className="text-foreground">
             {loading ? (
               <Skeleton className="h-[220px] w-full" />
             ) : (
-              <BarChart data={data?.contentBreakdown ?? []} />
+              <BarChart data={contentBreakdown} />
             )}
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle>آخرین کاربران</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {loading ? (
-              <ListSkeleton />
-            ) : data?.latestUsers.length ? (
-              data.latestUsers.map((u) => (
-                <div key={u.id} className="flex items-center gap-3">
-                  <Avatar className="h-8 w-8">
-                    <AvatarFallback>{u.fullName.slice(0, 1)}</AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{u.fullName}</p>
-                    <p className="truncate text-[11px] text-muted-foreground">{u.email}</p>
-                  </div>
-                  <span className="text-[10px] text-muted-foreground">
-                    {formatRelativeTime(u.createdAt)}
-                  </span>
-                </div>
-              ))
-            ) : (
-              <p className="text-xs text-muted-foreground">داده‌ای موجود نیست.</p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>آخرین مقالات</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {loading ? (
-              <ListSkeleton />
-            ) : data?.latestArticles.length ? (
-              data.latestArticles.map((a) => (
-                <div key={a.id} className="flex items-center justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <Link
-                      href={`/articles/${a.id}`}
-                      className="line-clamp-1 text-sm font-medium hover:underline"
-                    >
-                      {a.title}
-                    </Link>
-                    <p className="text-[11px] text-muted-foreground">
-                      {a.authorName ?? "—"} · {formatRelativeTime(a.createdAt)}
-                    </p>
-                  </div>
-                  <StatusBadge status={a.status} />
-                </div>
-              ))
-            ) : (
-              <p className="text-xs text-muted-foreground">داده‌ای موجود نیست.</p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>گزارش‌های اخیر</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {loading ? (
-              <ListSkeleton />
-            ) : data?.latestReports.length ? (
-              data.latestReports.map((r) => (
-                <div key={r.id} className="flex items-start gap-2">
-                  <Flag className={`mt-0.5 h-4 w-4 ${r.isDangerous ? "text-destructive" : "text-muted-foreground"}`} />
-                  <div className="flex-1 space-y-0.5">
-                    <p className="text-sm font-medium">{r.reason}</p>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-[10px]">
-                        {r.targetType}
-                      </Badge>
-                      <span className="text-[10px] text-muted-foreground">
-                        {formatRelativeTime(r.createdAt)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p className="text-xs text-muted-foreground">گزارشی وجود ندارد.</p>
-            )}
-          </CardContent>
-        </Card>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <MiniStat label="کل مقالات" value={data?.articles.total ?? 0} icon={FileText} loading={loading} />
+        <MiniStat
+          label="در انتظار بازبینی"
+          value={data?.articles.pendingReview ?? 0}
+          icon={CircleAlert}
+          loading={loading}
+        />
+        <MiniStat
+          label="سؤالات بدون پاسخ"
+          value={data?.qa.unansweredQuestions ?? 0}
+          icon={MessageSquare}
+          loading={loading}
+        />
+        <MiniStat
+          label="کل برچسب‌ها"
+          value={data?.community.tags ?? 0}
+          icon={TagsIcon}
+          loading={loading}
+        />
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>فعالیت‌های اخیر</CardTitle>
-          <CardDescription>رویدادهای ثبت شده در سامانه</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <ListSkeleton rows={5} />
-          ) : data?.activity.length ? (
-            <ol className="space-y-3">
-              {data.activity.map((e) => (
-                <li key={e.id} className="flex items-center gap-3">
-                  <Avatar className="h-7 w-7">
-                    <AvatarFallback>{e.actor.slice(0, 1)}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <p className="text-sm">
-                      <span className="font-medium">{e.actor}</span>{" "}
-                      <span className="text-muted-foreground">{e.action}</span>{" "}
-                      {e.target ? <span className="font-medium">{e.target}</span> : null}
-                    </p>
-                  </div>
-                  <span className="text-[10px] text-muted-foreground">
-                    {formatRelativeTime(e.createdAt)}
-                  </span>
-                </li>
-              ))}
-            </ol>
-          ) : (
-            <p className="text-xs text-muted-foreground">رویداد جدیدی ثبت نشده است.</p>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }
 
-function ListSkeleton({ rows = 4 }: { rows?: number }) {
+function MiniStat({
+  label,
+  value,
+  icon: Icon,
+  loading,
+}: {
+  label: string;
+  value: number;
+  icon: React.ComponentType<{ className?: string }>;
+  loading?: boolean;
+}) {
   return (
-    <div className="space-y-3">
-      {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="flex items-center gap-3">
-          <Skeleton className="h-8 w-8 rounded-full" />
-          <div className="flex-1 space-y-1.5">
-            <Skeleton className="h-3 w-3/4" />
-            <Skeleton className="h-2 w-1/2" />
-          </div>
+    <Card>
+      <CardContent className="flex items-center justify-between p-4">
+        <div>
+          <p className="text-[11px] text-muted-foreground">{label}</p>
+          {loading ? (
+            <Skeleton className="mt-1 h-6 w-16" />
+          ) : (
+            <p className="text-lg font-semibold tabular-nums">{toPersianDigits(value)}</p>
+          )}
         </div>
-      ))}
-    </div>
+        <Icon className="h-4 w-4 text-muted-foreground" />
+      </CardContent>
+    </Card>
   );
 }

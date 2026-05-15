@@ -1,33 +1,41 @@
-import type { Permission } from "./permission";
 import type { Role } from "./role";
+
+export type UserStatus = "active" | "blocked" | "pending";
+export type UserType = "normal" | "doctor" | "admin";
+export type Gender = "male" | "female" | "other";
 
 export type User = {
   id: string;
-  fullName: string;
-  email: string;
-  phone?: string;
-  avatar?: string | null;
-  isActive: boolean;
+  username: string;
+  firstName: string | null;
+  lastName: string | null;
+  email: string | null;
+  mobile: string | null;
+  avatar: string | null;
+  bio: string | null;
+  gender: Gender | null;
+  birthDate: string | null;
+  status: UserStatus;
+  userType: UserType;
+  reputation: number;
+  xp: number;
+  level: number;
   isVerified: boolean;
+  lastLoginAt: string | null;
   createdAt: string;
-  lastLoginAt?: string | null;
-  roles: Role[];
+  updatedAt?: string;
+  roles?: Role[];
+};
+
+export type TokenPair = {
+  accessToken: string;
+  refreshToken: string;
 };
 
 export type AuthSession = {
   user: User;
-  permissions: Permission[];
-  accessToken: string;
-  refreshToken: string;
+  tokens: TokenPair;
 };
 
-export type LoginPayload = {
-  email: string;
-  password: string;
-  rememberMe?: boolean;
-};
-
-export type RefreshResponse = {
-  accessToken: string;
-  refreshToken: string;
-};
+/* Auth payloads now live in src/services/auth.service.ts.
+ * Login is mobile-only with OTP fallback when the user has no password set. */

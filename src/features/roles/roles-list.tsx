@@ -32,8 +32,8 @@ export function RolesList() {
     setLoading(true);
     rolesService
       .list()
-      .then((res) => {
-        if (active) setData(res.data);
+      .then((roles) => {
+        if (active) setData(roles);
       })
       .catch(() => active && setData([]))
       .finally(() => active && setLoading(false));
@@ -52,27 +52,27 @@ export function RolesList() {
             <Link href={`/roles/${r.id}`} className="text-sm font-medium hover:underline">
               {r.name}
             </Link>
-            <p className="text-[11px] text-muted-foreground">{r.slug}</p>
+            <p className="text-[11px] text-muted-foreground" dir="ltr">
+              {r.slug}
+            </p>
           </div>
         ),
       },
       {
         key: "description",
         header: "توضیح",
-        cell: (r) => <span className="text-xs text-muted-foreground">{r.description || "—"}</span>,
+        cell: (r) => (
+          <span className="text-xs text-muted-foreground">{r.description || "—"}</span>
+        ),
       },
       {
         key: "permissions",
         header: "دسترسی‌ها",
         cell: (r) => (
-          <Badge variant="muted">{formatNumber(r.permissions.length)} مورد</Badge>
+          <Badge variant="muted">
+            {formatNumber(r.permissions?.length ?? 0)} مورد
+          </Badge>
         ),
-      },
-      {
-        key: "users",
-        header: "کاربران",
-        cell: (r) =>
-          r.usersCount != null ? formatNumber(r.usersCount) : <span className="text-xs text-muted-foreground">—</span>,
       },
       {
         key: "system",
@@ -94,7 +94,7 @@ export function RolesList() {
       loading={loading}
       columns={columns}
       toolbar={
-        <PermissionGuard permission="roles.create">
+        <PermissionGuard permission="roles.manage">
           <Button asChild>
             <Link href="/roles/new">
               <Plus />
@@ -111,7 +111,7 @@ export function RolesList() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            {can("roles.update") ? (
+            {can("roles.manage") ? (
               <DropdownMenuItem asChild>
                 <Link href={`/roles/${r.id}`}>
                   <Edit className="h-4 w-4" />
@@ -119,7 +119,7 @@ export function RolesList() {
                 </Link>
               </DropdownMenuItem>
             ) : null}
-            {can("roles.delete") && !r.isSystem ? (
+            {can("roles.manage") && !r.isSystem ? (
               <ConfirmDialog
                 title={`حذف نقش ${r.name}؟`}
                 description="کاربرانی که این نقش را دارند، آن را از دست خواهند داد."

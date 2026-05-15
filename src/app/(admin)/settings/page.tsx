@@ -1,7 +1,6 @@
 import { PageHeader } from "@/components/shared/page-header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProfileForm } from "@/features/settings/profile-form";
-import { PasswordForm } from "@/features/settings/password-form";
 import { Preferences } from "@/features/settings/preferences";
 import { NotificationPrefs } from "@/features/settings/notification-prefs";
 
@@ -10,19 +9,15 @@ export const metadata = { title: "تنظیمات — سفید و سیاه" };
 export default function SettingsPage() {
   return (
     <>
-      <PageHeader title="تنظیمات" description="مدیریت پروفایل، امنیت و ترجیحات شما." />
+      <PageHeader title="تنظیمات" description="مدیریت پروفایل و ترجیحات شما." />
       <Tabs defaultValue="profile">
         <TabsList>
           <TabsTrigger value="profile">پروفایل</TabsTrigger>
-          <TabsTrigger value="password">رمز عبور</TabsTrigger>
           <TabsTrigger value="appearance">نمایش</TabsTrigger>
           <TabsTrigger value="notifications">اعلان‌ها</TabsTrigger>
         </TabsList>
         <TabsContent value="profile">
           <ProfileForm />
-        </TabsContent>
-        <TabsContent value="password">
-          <PasswordForm />
         </TabsContent>
         <TabsContent value="appearance">
           <Preferences />

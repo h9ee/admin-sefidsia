@@ -45,8 +45,8 @@ export default function LoginPage() {
             <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground lg:hidden">
               <span className="text-lg font-bold">س</span>
             </div>
-            <CardTitle className="text-xl">ورود به پنل</CardTitle>
-            <CardDescription>برای ادامه، اطلاعات حساب خود را وارد کنید.</CardDescription>
+            <CardTitle className="text-xl">ورود به پنل مدیریت</CardTitle>
+            <CardDescription>برای ادامه، شماره موبایل خود را وارد کنید.</CardDescription>
           </CardHeader>
           <CardContent>
             <Suspense fallback={null}>

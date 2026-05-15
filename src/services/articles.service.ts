@@ -1,53 +1,54 @@
-import { api } from "@/lib/axios";
-import type { Article, Category, Paginated, Tag } from "@/types";
+import { apiDelete, apiGet, apiList, apiPatch, apiPost } from "@/lib/axios";
+import type { Article, ArticleStatus } from "@/types";
 
 export type ArticlesQuery = {
   page?: number;
-  perPage?: number;
-  search?: string;
-  status?: string;
-  tag?: string;
-  category?: string;
+  limit?: number;
+  q?: string;
+  status?: ArticleStatus;
+  tagId?: string;
+  categoryId?: string;
+  authorId?: string;
+  isFeatured?: boolean;
+  sortBy?: "publishedAt" | "createdAt" | "viewCount" | "likeCount";
+  sortOrder?: "ASC" | "DESC";
 };
 
+export type CreateArticlePayload = {
+  title: string;
+  summary?: string;
+  content: string;
+  coverImage?: string;
+  categoryId?: string;
+  tagIds?: string[];
+  seoTitle?: string;
+  seoDescription?: string;
+  canonicalUrl?: string;
+  requireMedicalReview?: boolean;
+};
+
+export type ReviewArticleStatus = "approved" | "rejected" | "needs_changes";
+
 export const articlesService = {
-  async list(params: ArticlesQuery = {}) {
-    const { data } = await api.get<Paginated<Article>>("/admin/articles", { params });
-    return data;
+  list(params: ArticlesQuery = {}) {
+    return apiList<Article>("/articles", params);
   },
-  async get(id: string) {
-    const { data } = await api.get<Article>(`/admin/articles/${id}`);
-    return data;
+  getBySlug(slug: string) {
+    return apiGet<Article>(`/articles/${slug}`);
   },
-  async create(payload: Partial<Article>) {
-    const { data } = await api.post<Article>("/admin/articles", payload);
-    return data;
+  create(payload: CreateArticlePayload) {
+    return apiPost<Article>("/articles", payload);
   },
-  async update(id: string, payload: Partial<Article>) {
-    const { data } = await api.patch<Article>(`/admin/articles/${id}`, payload);
-    return data;
+  update(id: string, payload: Partial<CreateArticlePayload>) {
+    return apiPatch<Article>(`/articles/${id}`, payload);
   },
-  async remove(id: string) {
-    await api.delete(`/admin/articles/${id}`);
+  remove(id: string) {
+    return apiDelete(`/articles/${id}`);
   },
-  async setStatus(id: string, status: Article["status"]) {
-    const { data } = await api.patch<Article>(`/admin/articles/${id}/status`, { status });
-    return data;
+  publish(id: string) {
+    return apiPost<Article>(`/articles/${id}/publish`);
   },
-  async uploadCover(id: string, file: File) {
-    const fd = new FormData();
-    fd.append("file", file);
-    const { data } = await api.post<{ url: string }>(`/admin/articles/${id}/cover`, fd, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
-    return data.url;
-  },
-  async listTags() {
-    const { data } = await api.get<Tag[]>("/admin/tags");
-    return data;
-  },
-  async listCategories() {
-    const { data } = await api.get<Category[]>("/admin/categories");
-    return data;
+  review(id: string, status: ReviewArticleStatus, comment?: string) {
+    return apiPost(`/articles/${id}/review`, { status, comment });
   },
 };

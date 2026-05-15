@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { reportsService } from "@/services/reports.service";
+import { moderationService } from "@/services/reports.service";
 import { formatRelativeTime } from "@/lib/format";
+import { displayName } from "@/lib/user";
 import type { ModerationLog } from "@/types";
 
 export function ModerationLogs() {
@@ -12,8 +13,8 @@ export function ModerationLogs() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    reportsService
-      .logs({ perPage: 20 })
+    moderationService
+      .logs({ limit: 20 })
       .then((res) => setItems(res.data))
       .catch(() => setItems([]))
       .finally(() => setLoading(false));
@@ -38,14 +39,21 @@ export function ModerationLogs() {
           items.map((l) => (
             <div key={l.id} className="border-b border-border/50 pb-2 last:border-0 last:pb-0">
               <p className="text-sm">
-                <span className="font-medium">{l.actor}</span>{" "}
-                <span className="text-muted-foreground">{l.action}</span>{" "}
                 <span className="font-medium">
-                  {l.targetType} #{l.targetId}
-                </span>
+                  {displayName(l.moderator) || l.moderatorId.slice(0, 8)}
+                </span>{" "}
+                <span className="text-muted-foreground">{l.action}</span>{" "}
+                <span className="font-medium">{l.targetType}</span>{" "}
+                <code className="text-[10px] text-muted-foreground" dir="ltr">
+                  {l.targetId.slice(0, 8)}…
+                </code>
               </p>
-              {l.note ? <p className="mt-1 text-[11px] text-muted-foreground">{l.note}</p> : null}
-              <p className="mt-0.5 text-[10px] text-muted-foreground">{formatRelativeTime(l.createdAt)}</p>
+              {l.reason ? (
+                <p className="mt-1 text-[11px] text-muted-foreground">{l.reason}</p>
+              ) : null}
+              <p className="mt-0.5 text-[10px] text-muted-foreground">
+                {formatRelativeTime(l.createdAt)}
+              </p>
             </div>
           ))
         )}
