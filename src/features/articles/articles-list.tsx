@@ -105,6 +105,18 @@ export function ArticlesList() {
         cell: (a) => <span className="text-xs">{displayName(a.author)}</span>,
       },
       {
+        key: "category",
+        header: "دسته",
+        cell: (a) =>
+          a.category ? (
+            <Badge variant="muted" className="text-[10px]">
+              {a.category.name}
+            </Badge>
+          ) : (
+            <span className="text-xs text-muted-foreground">—</span>
+          ),
+      },
+      {
         key: "medicalReview",
         header: "بازبینی پزشک",
         cell: (a) => <StatusBadge status={a.medicalReviewStatus} />,

@@ -21,7 +21,7 @@ export type Column<T> = {
 
 export type Sort = { key: string; dir: "asc" | "desc" } | null;
 
-type DataTableProps<T extends { id: string }> = {
+type DataTableProps<T extends { id: string | number }> = {
   data: T[];
   columns: Column<T>[];
   rowKey?: (row: T) => string;
@@ -44,10 +44,10 @@ type DataTableProps<T extends { id: string }> = {
   emptyDescription?: string;
 };
 
-export function DataTable<T extends { id: string }>({
+export function DataTable<T extends { id: string | number }>({
   data,
   columns,
-  rowKey = (r) => r.id,
+  rowKey = (r) => String(r.id),
   loading,
   total,
   page = 1,

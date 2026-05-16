@@ -7,6 +7,7 @@ import {
   KeyRound,
   Stethoscope,
   FileText,
+  FolderTree,
   MessageSquare,
   MessageCircle,
   Tags,
@@ -15,6 +16,9 @@ import {
   Trophy,
   Settings,
   Reply,
+  ShieldAlert,
+  History,
+  LifeBuoy,
 } from "lucide-react";
 
 export type NavItem = {
@@ -60,11 +64,23 @@ export const navigation: NavItem[] = [
     icon: FileText,
     children: [
       { label: "مقالات", href: "/articles", icon: FileText },
+      {
+        label: "دسته‌بندی‌ها",
+        href: "/categories",
+        icon: FolderTree,
+        permission: "categories.manage",
+      },
       { label: "سوالات", href: "/questions", icon: MessageSquare },
       { label: "پاسخ‌ها", href: "/answers", icon: Reply },
       { label: "نظرات", href: "/comments", icon: MessageCircle },
       { label: "برچسب‌ها", href: "/tags", icon: Tags },
     ],
+  },
+  {
+    label: "تیکت‌ها",
+    href: "/tickets",
+    icon: LifeBuoy,
+    permission: "tickets.read",
   },
   {
     label: "گزارش‌ها و نظارت",
@@ -81,6 +97,18 @@ export const navigation: NavItem[] = [
     label: "گیمیفیکیشن",
     href: "/gamification",
     icon: Trophy,
+  },
+  {
+    label: "لاگ خطاها",
+    href: "/error-logs",
+    icon: ShieldAlert,
+    permission: "errorLogs.manage",
+  },
+  {
+    label: "لاگ تغییرات",
+    href: "/audit",
+    icon: History,
+    permission: "audit.read",
   },
   {
     label: "تنظیمات",

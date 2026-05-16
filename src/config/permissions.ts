@@ -28,11 +28,13 @@ const fallbackPermissions: Omit<Permission, "id" | "createdAt" | "updatedAt">[] 
   { slug: "comments.update", name: "ویرایش کامنت", module: "comments", action: "update" },
   { slug: "comments.delete", name: "حذف کامنت", module: "comments", action: "delete" },
   { slug: "tags.manage", name: "مدیریت برچسب‌ها", module: "tags", action: "manage" },
+  { slug: "categories.manage", name: "مدیریت دسته‌بندی‌ها", module: "categories", action: "manage" },
   { slug: "doctors.verify", name: "تأیید پزشک", module: "doctors", action: "verify" },
   { slug: "reports.manage", name: "مدیریت گزارش‌ها", module: "reports", action: "manage" },
   { slug: "moderation.manage", name: "مدیریت نظارت", module: "moderation", action: "manage" },
   { slug: "leaderboard.manage", name: "مدیریت لیدربورد", module: "leaderboard", action: "manage" },
   { slug: "notifications.manage", name: "مدیریت اعلان‌ها", module: "notifications", action: "manage" },
+  { slug: "audit.read", name: "مشاهده لاگ تغییرات", module: "audit", action: "read" },
 ];
 
 const MODULE_LABELS: Record<string, string> = {
@@ -44,11 +46,13 @@ const MODULE_LABELS: Record<string, string> = {
   answers: "پاسخ‌ها",
   comments: "نظرات",
   tags: "برچسب‌ها",
+  categories: "دسته‌بندی‌ها",
   doctors: "پزشکان",
   reports: "گزارش‌ها",
   moderation: "نظارت",
   leaderboard: "لیدربورد",
   notifications: "اعلان‌ها",
+  audit: "لاگ تغییرات",
 };
 
 export function groupPermissions(items: Permission[]): PermissionGroup[] {

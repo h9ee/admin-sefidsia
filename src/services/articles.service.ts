@@ -1,30 +1,86 @@
 import { apiDelete, apiGet, apiList, apiPatch, apiPost } from "@/lib/axios";
-import type { Article, ArticleStatus } from "@/types";
+import type {
+  Article,
+  ArticleStatus,
+  AudienceAge,
+  AudienceLevel,
+  ContentType,
+  ContentWarning,
+  FaqItem,
+  ReferenceItem,
+  TwitterCardType,
+} from "@/types";
 
 export type ArticlesQuery = {
   page?: number;
   limit?: number;
   q?: string;
   status?: ArticleStatus;
-  tagId?: string;
-  categoryId?: string;
+  tagId?: number;
+  categoryId?: number;
   authorId?: string;
+  reviewedByDoctorId?: number;
+  contentType?: ContentType;
+  audienceLevel?: AudienceLevel;
+  contentWarning?: ContentWarning;
   isFeatured?: boolean;
-  sortBy?: "publishedAt" | "createdAt" | "viewCount" | "likeCount";
+  sortBy?:
+    | "publishedAt"
+    | "createdAt"
+    | "viewCount"
+    | "likeCount"
+    | "scheduledAt";
   sortOrder?: "ASC" | "DESC";
 };
 
 export type CreateArticlePayload = {
+  // Core
   title: string;
+  subtitle?: string;
   summary?: string;
   content: string;
   coverImage?: string;
-  categoryId?: string;
+  coverImageAlt?: string;
+
+  // Taxonomy
+  categoryId: number;
   tagIds?: string[];
+
+  // Editorial classification
+  contentType?: ContentType;
+  audienceLevel?: AudienceLevel;
+  audienceAge?: AudienceAge;
+  contentWarning?: ContentWarning;
+  disclaimer?: string;
+
+  // Engagement
+  allowComments?: boolean;
+  allowReactions?: boolean;
+  isFeatured?: boolean;
+
+  // Rich blocks
+  keyTakeaways?: string[];
+  faq?: FaqItem[];
+  references?: ReferenceItem[];
+
+  // SEO
   seoTitle?: string;
   seoDescription?: string;
   canonicalUrl?: string;
+  focusKeyword?: string;
+
+  // Social overrides
+  ogTitle?: string;
+  ogDescription?: string;
+  ogImage?: string;
+  twitterCard?: TwitterCardType;
+
+  // Medical review
+  reviewedByDoctorId?: number | null;
   requireMedicalReview?: boolean;
+
+  // Scheduling (ISO datetime)
+  scheduledAt?: string | null;
 };
 
 export type ReviewArticleStatus = "approved" | "rejected" | "needs_changes";

@@ -39,11 +39,17 @@ export function formatDateTime(date: string | Date): string {
   }).format(t);
 }
 
+/**
+ * Produces an ASCII-only slug. Persian/non-Latin input returns "" so the caller
+ * can leave the slug field empty and let the server auto-generate one.
+ * URL slugs need to be ASCII to pass the backend's `^[a-z0-9-]+$` regex.
+ */
 export function slugify(text: string): string {
   return text
     .trim()
+    .toLowerCase()
     .replace(/[\s_]+/g, "-")
-    .replace(/[^؀-ۿa-zA-Z0-9-]/g, "")
+    .replace(/[^a-z0-9-]/g, "")
     .replace(/-+/g, "-")
-    .toLowerCase();
+    .replace(/^-+|-+$/g, "");
 }

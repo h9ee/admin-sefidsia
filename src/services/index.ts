@@ -9,3 +9,7 @@ export * from "./notifications.service";
 export * from "./dashboard.service";
 export * from "./tags.service";
 export * from "./gamification.service";
+export * from "./categories.service";
+export * from "./error-logs.service";
+export * from "./tickets.service";
+export * from "./audit.service";
