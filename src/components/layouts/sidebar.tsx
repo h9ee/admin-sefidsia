@@ -4,38 +4,27 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, PanelRightClose, PanelLeftClose } from "lucide-react";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/cn";
-import { navigation, type NavItem } from "@/config/navigation";
-import { usePermission } from "@/hooks/use-permission";
+import { navigation, type NavItem, type NavSection } from "@/config/navigation";
 import { useSidebarStore } from "@/store/sidebar.store";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-
-function filterNav(items: NavItem[], can: (p?: string | string[]) => boolean): NavItem[] {
-  return items
-    .map((item) => {
-      const allowed = can(item.permission);
-      const children = item.children ? filterNav(item.children, can) : undefined;
-      if (children && children.length === 0 && !item.href) return null;
-      if (!allowed && !children?.length) return null;
-      return { ...item, children };
-    })
-    .filter(Boolean) as NavItem[];
-}
 
 export function Sidebar({ onItemClick }: { onItemClick?: () => void }) {
   const pathname = usePathname();
   const collapsed = useSidebarStore((s) => s.collapsed);
   const toggle = useSidebarStore((s) => s.toggleCollapsed);
-  const { can } = usePermission();
 
-  const items = useMemo(() => filterNav(navigation, can), [can]);
+  // Show all items unconditionally. The backend enforces access on each API
+  // call — sidebar visibility is intentionally permissive so admins always
+  // see the full surface of the panel.
+  const sections: NavSection[] = navigation;
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-card text-card-foreground">
       <div
         className={cn(
-          "flex h-16 items-center border-b border-border px-4",
+          "relative flex h-16 shrink-0 items-center border-b border-border px-4",
           collapsed ? "justify-center" : "justify-between",
         )}
       >
@@ -47,7 +36,7 @@ export function Sidebar({ onItemClick }: { onItemClick?: () => void }) {
             <button
               type="button"
               onClick={toggle}
-              className="hidden rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground lg:inline-flex"
+              className="hidden rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground lg:inline-flex"
               aria-label="بستن سایدبار"
             >
               <PanelRightClose className="h-4 w-4" />
@@ -58,7 +47,7 @@ export function Sidebar({ onItemClick }: { onItemClick?: () => void }) {
           <button
             type="button"
             onClick={toggle}
-            className="absolute -left-3 top-5 hidden rounded-full border border-border bg-card p-1 text-muted-foreground shadow hover:text-foreground lg:inline-flex"
+            className="absolute -left-3 top-5 hidden rounded-full border border-border bg-card p-1 text-muted-foreground shadow transition-colors hover:text-foreground lg:inline-flex"
             aria-label="باز کردن سایدبار"
           >
             <PanelLeftClose className="h-3.5 w-3.5" />
@@ -66,21 +55,70 @@ export function Sidebar({ onItemClick }: { onItemClick?: () => void }) {
         ) : null}
       </div>
 
-      <nav className="flex-1 space-y-0.5 overflow-y-auto p-2">
-        {items.map((item) => (
-          <NavItemRow
-            key={item.label}
-            item={item}
+      <nav className="flex-1 overflow-y-auto px-2 py-3">
+        {sections.map((section, idx) => (
+          <SectionBlock
+            key={section.label ?? `s-${idx}`}
+            section={section}
             pathname={pathname}
             collapsed={collapsed}
             onItemClick={onItemClick}
+            isFirst={idx === 0}
           />
         ))}
       </nav>
 
-      <div className="border-t border-border p-3 text-xs text-muted-foreground">
-        {collapsed ? null : <span>سفید و سیاه · پنل مدیریت</span>}
+      <div
+        className={cn(
+          "shrink-0 border-t border-border px-3 py-3 text-xs text-muted-foreground",
+          collapsed && "flex justify-center",
+        )}
+      >
+        {collapsed ? (
+          <span className="font-bold text-foreground/60">س</span>
+        ) : (
+          <div className="flex items-center justify-between">
+            <span>سفید و سیاه</span>
+            <span className="text-[10px] opacity-60">v1.0</span>
+          </div>
+        )}
       </div>
+    </div>
+  );
+}
+
+function SectionBlock({
+  section,
+  pathname,
+  collapsed,
+  onItemClick,
+  isFirst,
+}: {
+  section: NavSection;
+  pathname: string;
+  collapsed: boolean;
+  onItemClick?: () => void;
+  isFirst: boolean;
+}) {
+  return (
+    <div className={cn("space-y-0.5", !isFirst && (collapsed ? "mt-3" : "mt-4"))}>
+      {section.label && !collapsed ? (
+        <p className="mb-1 px-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+          {section.label}
+        </p>
+      ) : null}
+      {section.label && collapsed ? (
+        <div className="mx-auto mb-1 h-px w-6 bg-border" />
+      ) : null}
+      {section.items.map((item) => (
+        <NavItemRow
+          key={item.label}
+          item={item}
+          pathname={pathname}
+          collapsed={collapsed}
+          onItemClick={onItemClick}
+        />
+      ))}
     </div>
   );
 }
@@ -88,7 +126,7 @@ export function Sidebar({ onItemClick }: { onItemClick?: () => void }) {
 function Logo({ only }: { only?: boolean }) {
   return (
     <Link href="/dashboard" className="flex items-center gap-2">
-      <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
+      <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground shadow-sm">
         <span className="text-sm font-bold">س</span>
       </div>
       {!only ? (
@@ -98,6 +136,22 @@ function Logo({ only }: { only?: boolean }) {
         </div>
       ) : null}
     </Link>
+  );
+}
+
+function Badge({ count, active }: { count: number; active?: boolean }) {
+  if (!count) return null;
+  return (
+    <span
+      className={cn(
+        "ms-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold tabular-nums",
+        active
+          ? "bg-primary-foreground/20 text-primary-foreground"
+          : "bg-destructive/15 text-destructive",
+      )}
+    >
+      {count > 99 ? "99+" : count}
+    </span>
   );
 }
 
@@ -113,7 +167,9 @@ function NavItemRow({
   onItemClick?: () => void;
 }) {
   const hasChildren = !!item.children?.length;
-  const active = item.href ? pathname === item.href || pathname.startsWith(item.href + "/") : false;
+  const active = item.href
+    ? pathname === item.href || pathname.startsWith(item.href + "/")
+    : false;
   const childActive = item.children?.some((c) =>
     c.href ? pathname === c.href || pathname.startsWith(c.href + "/") : false,
   );
@@ -123,21 +179,37 @@ function NavItemRow({
     if (childActive) setOpen(true);
   }, [childActive]);
 
+  // Static placeholder counts. Wire to real data via a `useBadgeCounts` hook
+  // once endpoints exist (e.g. pending tickets, unread notifications).
+  const badgeCount = 0;
+
   if (!hasChildren && item.href) {
     const button = (
       <Link
         href={item.href}
         onClick={onItemClick}
         className={cn(
-          "group flex h-9 items-center gap-2 rounded-md px-2.5 text-sm font-medium transition-colors",
+          "group relative flex h-9 items-center gap-2.5 rounded-md px-2.5 text-sm font-medium transition-colors",
           active
-            ? "bg-primary text-primary-foreground"
-            : "text-foreground/80 hover:bg-accent hover:text-foreground",
+            ? "bg-primary text-primary-foreground shadow-sm"
+            : "text-foreground/75 hover:bg-accent hover:text-foreground",
           collapsed && "justify-center px-0",
         )}
       >
-        <item.icon className="h-4 w-4 shrink-0" />
-        {!collapsed && <span>{item.label}</span>}
+        {active && !collapsed ? (
+          <span className="absolute inset-y-1.5 right-0 w-0.5 rounded-full bg-primary-foreground/80" />
+        ) : null}
+        <item.icon
+          className={cn(
+            "h-4 w-4 shrink-0 transition-transform group-hover:scale-110",
+            active && "scale-110",
+          )}
+        />
+        {!collapsed && <span className="truncate">{item.label}</span>}
+        {!collapsed && item.badge ? <Badge count={badgeCount} active={active} /> : null}
+        {collapsed && item.badge && badgeCount > 0 ? (
+          <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-destructive" />
+        ) : null}
       </Link>
     );
     return collapsed ? (
@@ -151,31 +223,48 @@ function NavItemRow({
   }
 
   if (hasChildren) {
+    const button = (
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className={cn(
+          "group flex h-9 w-full items-center gap-2.5 rounded-md px-2.5 text-sm font-medium transition-colors",
+          childActive
+            ? "bg-accent/60 text-foreground"
+            : "text-foreground/75 hover:bg-accent hover:text-foreground",
+          collapsed && "justify-center px-0",
+        )}
+      >
+        <item.icon
+          className={cn(
+            "h-4 w-4 shrink-0 transition-transform group-hover:scale-110",
+            childActive && "scale-110",
+          )}
+        />
+        {!collapsed && (
+          <>
+            <span className="truncate">{item.label}</span>
+            <ChevronLeft
+              className={cn(
+                "ms-auto h-4 w-4 text-muted-foreground transition-transform",
+                open && "-rotate-90",
+              )}
+            />
+          </>
+        )}
+      </button>
+    );
+
     return (
       <div className="space-y-0.5">
-        <button
-          type="button"
-          onClick={() => setOpen(!open)}
-          className={cn(
-            "flex h-9 w-full items-center gap-2 rounded-md px-2.5 text-sm font-medium transition-colors",
-            childActive ? "text-foreground" : "text-foreground/80",
-            "hover:bg-accent hover:text-foreground",
-            collapsed && "justify-center px-0",
-          )}
-        >
-          <item.icon className="h-4 w-4 shrink-0" />
-          {!collapsed && (
-            <>
-              <span>{item.label}</span>
-              <ChevronLeft
-                className={cn(
-                  "ms-auto h-4 w-4 transition-transform",
-                  open && "-rotate-90",
-                )}
-              />
-            </>
-          )}
-        </button>
+        {collapsed ? (
+          <Tooltip>
+            <TooltipTrigger asChild>{button}</TooltipTrigger>
+            <TooltipContent side="left">{item.label}</TooltipContent>
+          </Tooltip>
+        ) : (
+          button
+        )}
         <AnimatePresence initial={false}>
           {open && !collapsed ? (
             <motion.div
@@ -197,7 +286,7 @@ function NavItemRow({
                       href={child.href}
                       onClick={onItemClick}
                       className={cn(
-                        "flex h-8 items-center gap-2 rounded-md px-2.5 text-xs transition-colors",
+                        "flex h-8 items-center gap-2.5 rounded-md px-2.5 text-xs transition-colors",
                         isActive
                           ? "bg-primary/10 font-medium text-foreground"
                           : "text-muted-foreground hover:bg-accent hover:text-foreground",
@@ -205,11 +294,11 @@ function NavItemRow({
                     >
                       <span
                         className={cn(
-                          "h-1.5 w-1.5 rounded-full",
+                          "h-1.5 w-1.5 rounded-full transition-colors",
                           isActive ? "bg-primary" : "bg-border",
                         )}
                       />
-                      {child.label}
+                      <span className="truncate">{child.label}</span>
                     </Link>
                   );
                 })}

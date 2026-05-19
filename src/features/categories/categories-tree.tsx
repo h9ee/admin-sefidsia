@@ -6,9 +6,12 @@ import {
   ChevronDown,
   ChevronLeft,
   Edit,
+  EyeOff,
   FolderTree,
+  ImageIcon,
   MoreHorizontal,
   Plus,
+  Star,
   Trash2,
 } from "lucide-react";
 import { FormProvider, useForm } from "react-hook-form";
@@ -31,11 +34,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { FormInput } from "@/components/forms/form-input";
 import { FormSelect } from "@/components/forms/form-select";
 import { FormTextarea } from "@/components/forms/form-textarea";
+import { FormSwitch } from "@/components/forms/form-switch";
+import { MediaField } from "@/features/media/media-field";
 import { PermissionGuard } from "@/components/permission/permission-guard";
 import { usePermission } from "@/hooks/use-permission";
 import {
@@ -45,10 +51,35 @@ import {
 } from "@/services/categories.service";
 import { parseApiError } from "@/lib/api-error";
 import { formatNumber, slugify, toPersianDigits } from "@/lib/format";
+import { mediaUrl } from "@/lib/media-url";
 import { cn } from "@/lib/cn";
 import { MAX_CATEGORY_DEPTH, type CategoryNode } from "@/types";
 
+const STATUS_OPTIONS = [
+  { value: "active", label: "فعال" },
+  { value: "hidden", label: "مخفی" },
+  { value: "archived", label: "بایگانی شده" },
+] as const;
+
+const STATUS_BADGE: Record<string, { label: string; variant: "default" | "muted" | "outline" }> = {
+  active: { label: "فعال", variant: "default" },
+  hidden: { label: "مخفی", variant: "muted" },
+  archived: { label: "بایگانی", variant: "outline" },
+};
+
+const URL_LIKE = /^(https?:\/\/|\/)/;
+const HEX = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+
+const optionalStr = z.string().max(20000).optional().or(z.literal(""));
+const optionalUrl = z
+  .string()
+  .max(500)
+  .regex(URL_LIKE, "باید آدرس معتبر باشد")
+  .optional()
+  .or(z.literal(""));
+
 const schema = z.object({
+  // Basic
   name: z.string().min(2, "نام الزامی است").max(120),
   slug: z
     .string()
@@ -57,10 +88,50 @@ const schema = z.object({
     .regex(/^[a-z0-9-]+$/, "فقط حروف کوچک انگلیسی، عدد و -")
     .optional()
     .or(z.literal("")),
-  description: z.string().max(500).optional().or(z.literal("")),
   parentId: z.string(),
+  status: z.enum(["active", "hidden", "archived"]),
+  isFeatured: z.boolean(),
+  sortOrder: z
+    .string()
+    .regex(/^\d+$/, "فقط عدد")
+    .refine((v) => Number(v) <= 99999, "حداکثر ۹۹۹۹۹"),
+
+  // Display
+  shortDescription: z.string().max(200).optional().or(z.literal("")),
+  description: optionalStr,
+  icon: z.string().max(100).optional().or(z.literal("")),
+  coverImage: optionalUrl,
+  color: z.string().regex(HEX, "رنگ HEX، مثل #1e88e5").optional().or(z.literal("")),
+
+  // SEO
+  metaTitle: z.string().max(200).optional().or(z.literal("")),
+  metaDescription: z.string().max(320).optional().or(z.literal("")),
+  metaKeywords: z.string().max(500).optional().or(z.literal("")),
+  ogImage: optionalUrl,
+  canonicalUrl: optionalUrl,
+  noIndex: z.boolean(),
 });
 type Values = z.infer<typeof schema>;
+
+const DEFAULTS: Values = {
+  name: "",
+  slug: "",
+  parentId: "",
+  status: "active",
+  isFeatured: false,
+  sortOrder: "0",
+  shortDescription: "",
+  description: "",
+  icon: "",
+  coverImage: "",
+  color: "",
+  metaTitle: "",
+  metaDescription: "",
+  metaKeywords: "",
+  ogImage: "",
+  canonicalUrl: "",
+  noIndex: false,
+};
 
 export function CategoriesTree() {
   const { can } = usePermission();
@@ -172,6 +243,7 @@ function Branch({
   const [expanded, setExpanded] = useState(node.depth < 2);
   const hasChildren = node.children && node.children.length > 0;
   const atMaxDepth = node.depth >= MAX_CATEGORY_DEPTH;
+  const statusInfo = STATUS_BADGE[node.status] ?? STATUS_BADGE.active;
 
   return (
     <div className={cn(node.depth > 1 && "ms-5 border-r border-border ps-3")}>
@@ -184,17 +256,54 @@ function Branch({
             !hasChildren && "invisible",
           )}
         >
-          {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
+          {expanded ? (
+            <ChevronDown className="h-3.5 w-3.5" />
+          ) : (
+            <ChevronLeft className="h-3.5 w-3.5" />
+          )}
         </button>
 
-        <div className="flex flex-1 items-center gap-2">
-          <span className="text-sm">{node.name}</span>
+        {/* Thumbnail / color dot */}
+        {node.coverImage ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={mediaUrl(node.coverImage)}
+            alt=""
+            className="h-7 w-7 shrink-0 rounded-md object-cover ring-1 ring-border"
+          />
+        ) : node.color ? (
+          <span
+            className="h-3 w-3 shrink-0 rounded-full ring-1 ring-border"
+            style={{ backgroundColor: node.color }}
+            aria-hidden
+          />
+        ) : (
+          <ImageIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40" />
+        )}
+
+        <div className="flex flex-1 flex-wrap items-center gap-2">
+          <span className="text-sm font-medium">{node.name}</span>
           <code className="text-[10px] text-muted-foreground" dir="ltr">
             {node.slug}
           </code>
           <Badge variant="outline" className="text-[10px]">
             لایه {toPersianDigits(node.depth)}
           </Badge>
+          <Badge variant={statusInfo.variant} className="text-[10px]">
+            {statusInfo.label}
+          </Badge>
+          {node.isFeatured ? (
+            <Badge variant="muted" className="gap-1 text-[10px]">
+              <Star className="h-2.5 w-2.5" />
+              ویژه
+            </Badge>
+          ) : null}
+          {node.noIndex ? (
+            <Badge variant="outline" className="gap-1 text-[10px]">
+              <EyeOff className="h-2.5 w-2.5" />
+              noindex
+            </Badge>
+          ) : null}
           {node.articleCount != null && node.articleCount > 0 ? (
             <Badge variant="muted" className="text-[10px]">
               {formatNumber(node.articleCount)} مقاله
@@ -281,7 +390,7 @@ function CategoryFormDialog({
 }) {
   const methods = useForm<Values>({
     resolver: zodResolver(schema),
-    defaultValues: { name: "", slug: "", description: "", parentId: "" },
+    defaultValues: DEFAULTS,
   });
 
   useEffect(() => {
@@ -290,19 +399,31 @@ function CategoryFormDialog({
       methods.reset({
         name: editing.name,
         slug: editing.slug,
-        description: editing.description ?? "",
         parentId: editing.parentId ? String(editing.parentId) : "",
+        status: editing.status,
+        isFeatured: editing.isFeatured,
+        sortOrder: String(editing.sortOrder),
+        shortDescription: editing.shortDescription ?? "",
+        description: editing.description ?? "",
+        icon: editing.icon ?? "",
+        coverImage: editing.coverImage ?? "",
+        color: editing.color ?? "",
+        metaTitle: editing.metaTitle ?? "",
+        metaDescription: editing.metaDescription ?? "",
+        metaKeywords: editing.metaKeywords ?? "",
+        ogImage: editing.ogImage ?? "",
+        canonicalUrl: editing.canonicalUrl ?? "",
+        noIndex: editing.noIndex,
       });
     } else {
       methods.reset({
-        name: "",
-        slug: "",
-        description: "",
+        ...DEFAULTS,
         parentId: presetParent ? String(presetParent.id) : "",
       });
     }
   }, [editing, presetParent, open, methods]);
 
+  // Auto-fill slug from name only when creating (don't clobber existing slug).
   const name = methods.watch("name");
   useEffect(() => {
     if (!editing && name) methods.setValue("slug", slugify(name));
@@ -317,7 +438,6 @@ function CategoryFormDialog({
     };
     collect(editing);
   }
-  // Forbid choosing a parent that's already at MAX depth (can't add deeper child).
   const parentOptions = [
     { label: "— ریشه (بدون والد)", value: "" },
     ...flat
@@ -327,14 +447,26 @@ function CategoryFormDialog({
 
   const onSubmit = methods.handleSubmit(async (values) => {
     try {
+      const empty = (s: string | undefined) =>
+        s && s.length > 0 ? s : null;
       const payload = {
         name: values.name,
         slug: values.slug && values.slug.length > 0 ? values.slug : undefined,
-        description:
-          values.description && values.description.length > 0
-            ? values.description
-            : undefined,
         parentId: values.parentId ? Number(values.parentId) : null,
+        status: values.status,
+        isFeatured: values.isFeatured,
+        sortOrder: Number(values.sortOrder),
+        shortDescription: empty(values.shortDescription),
+        description: empty(values.description),
+        icon: empty(values.icon),
+        coverImage: empty(values.coverImage),
+        color: empty(values.color),
+        metaTitle: empty(values.metaTitle),
+        metaDescription: empty(values.metaDescription),
+        metaKeywords: empty(values.metaKeywords),
+        ogImage: empty(values.ogImage),
+        canonicalUrl: empty(values.canonicalUrl),
+        noIndex: values.noIndex,
       };
       if (editing) {
         await categoriesService.update(editing.id, payload);
@@ -352,30 +484,134 @@ function CategoryFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-hidden sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{editing ? "ویرایش دسته" : "دسته جدید"}</DialogTitle>
           <DialogDescription>
             تا {toPersianDigits(MAX_CATEGORY_DEPTH)} لایه تو در تو پشتیبانی می‌شود.
           </DialogDescription>
         </DialogHeader>
+
         <FormProvider {...methods}>
-          <form onSubmit={onSubmit} className="space-y-3">
-            <FormInput<Values> name="name" label="نام" required />
-            <FormInput<Values>
-              name="slug"
-              label="شناسه (اختیاری)"
-              hint="فقط حروف کوچک انگلیسی، عدد و خط تیره. اگر خالی باشد سرور خودش یکی می‌سازد."
-              dir="ltr"
-            />
-            <FormSelect<Values>
-              name="parentId"
-              label="دسته والد"
-              options={parentOptions}
-              placeholder="انتخاب کنید"
-            />
-            <FormTextarea<Values> name="description" label="توضیحات" rows={2} />
-            <DialogFooter>
+          <form onSubmit={onSubmit} className="flex flex-col gap-4 overflow-hidden">
+            <Tabs defaultValue="general" className="flex flex-col overflow-hidden">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="general">عمومی</TabsTrigger>
+                <TabsTrigger value="display">نمایش</TabsTrigger>
+                <TabsTrigger value="seo">سئو</TabsTrigger>
+              </TabsList>
+
+              <div className="mt-3 max-h-[55vh] overflow-y-auto pe-1">
+                <TabsContent value="general" className="space-y-3 outline-none">
+                  <FormInput<Values> name="name" label="نام" required />
+                  <FormInput<Values>
+                    name="slug"
+                    label="شناسه (slug)"
+                    hint="فقط حروف کوچک انگلیسی، عدد و خط تیره. اگر خالی باشد، خودکار از نام ساخته می‌شود."
+                    dir="ltr"
+                  />
+                  <FormSelect<Values>
+                    name="parentId"
+                    label="دسته والد"
+                    options={parentOptions}
+                    placeholder="انتخاب کنید"
+                  />
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <FormSelect<Values>
+                      name="status"
+                      label="وضعیت"
+                      options={STATUS_OPTIONS.map((o) => ({
+                        value: o.value,
+                        label: o.label,
+                      }))}
+                    />
+                    <FormInput<Values>
+                      name="sortOrder"
+                      label="ترتیب نمایش"
+                      type="number"
+                      hint="عدد کوچک‌تر = اولویت بالاتر"
+                    />
+                  </div>
+                  <FormSwitch<Values>
+                    name="isFeatured"
+                    label="دسته ویژه (نمایش در صفحات خاص)"
+                  />
+                  <FormTextarea<Values>
+                    name="shortDescription"
+                    label="توضیح کوتاه"
+                    rows={2}
+                    hint="حداکثر ۲۰۰ کاراکتر — برای نمایش در کارت‌ها و فهرست‌ها."
+                  />
+                </TabsContent>
+
+                <TabsContent value="display" className="space-y-3 outline-none">
+                  <MediaField<Values>
+                    name="coverImage"
+                    label="تصویر شاخص"
+                    kind="image"
+                    hint="ابعاد پیشنهادی: ۱۲۰۰×۶۳۰"
+                  />
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <FormInput<Values>
+                      name="icon"
+                      label="آیکن (lucide name یا URL)"
+                      dir="ltr"
+                      hint="مثل heart, brain یا یک آدرس SVG"
+                    />
+                    <FormInput<Values>
+                      name="color"
+                      label="رنگ شاخص"
+                      placeholder="#1e88e5"
+                      dir="ltr"
+                      hint="HEX — برای bordr/badge ها استفاده می‌شود"
+                    />
+                  </div>
+                  <FormTextarea<Values>
+                    name="description"
+                    label="توضیحات کامل"
+                    rows={6}
+                    hint="می‌توانید HTML/Markdown ساده استفاده کنید."
+                  />
+                </TabsContent>
+
+                <TabsContent value="seo" className="space-y-3 outline-none">
+                  <FormInput<Values>
+                    name="metaTitle"
+                    label="عنوان سئو (Meta Title)"
+                    hint="پیشنهاد: ۵۰–۶۰ کاراکتر"
+                  />
+                  <FormTextarea<Values>
+                    name="metaDescription"
+                    label="توضیح سئو (Meta Description)"
+                    rows={3}
+                    hint="پیشنهاد: ۱۵۰–۱۶۰ کاراکتر"
+                  />
+                  <FormInput<Values>
+                    name="metaKeywords"
+                    label="کلمات کلیدی"
+                    hint="با ویرگول جدا کنید"
+                  />
+                  <MediaField<Values>
+                    name="ogImage"
+                    label="تصویر Open Graph"
+                    kind="image"
+                    hint="نسبت پیشنهادی ۱.۹:۱ — استفاده در اشتراک شبکه‌های اجتماعی"
+                  />
+                  <FormInput<Values>
+                    name="canonicalUrl"
+                    label="آدرس Canonical"
+                    dir="ltr"
+                    placeholder="https://… یا /…"
+                  />
+                  <FormSwitch<Values>
+                    name="noIndex"
+                    label="عدم index توسط موتورهای جستجو"
+                  />
+                </TabsContent>
+              </div>
+            </Tabs>
+
+            <DialogFooter className="border-t border-border pt-3">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 انصراف
               </Button>

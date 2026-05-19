@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { authService } from "@/services/auth.service";
 import { useAuthStore } from "@/store/auth.store";
 import { parseApiError } from "@/lib/api-error";
+import { canAccessAdminPanel } from "@/lib/permissions";
 import {
   isValidIranianMobile,
   maskMobile,
@@ -71,6 +72,10 @@ export function LoginForm() {
         <PasswordStep
           mobile={step.mobile}
           onSuccess={(user, tokens) => {
+            if (!canAccessAdminPanel(user)) {
+              toast.error("دسترسی شما به پنل مدیریت مجاز نیست.");
+              return;
+            }
             setSession({ user, tokens });
             toast.success(`خوش آمدید، ${user.firstName ?? user.username}`);
             finish();
@@ -104,6 +109,10 @@ export function LoginForm() {
             setStep({ ...step, expiresAt: newExpires })
           }
           onLoginVerified={(payload) => {
+            if (!canAccessAdminPanel(payload.user)) {
+              toast.error("دسترسی شما به پنل مدیریت مجاز نیست.");
+              return;
+            }
             setSession({ user: payload.user, tokens: payload.tokens });
             if (payload.shouldSuggestPassword) {
               setStep({ kind: "set-password", mode: "initial" });

@@ -27,42 +27,50 @@ export type NavItem = {
   icon: ComponentType<{ className?: string }>;
   permission?: PermissionSlug | PermissionSlug[];
   children?: NavItem[];
+  /** Optional badge key — used by sidebar to render a live counter. */
+  badge?: "tickets" | "reports" | "notifications";
+};
+
+export type NavSection = {
+  /** If omitted, items render without a header (use for the first/dashboard block). */
+  label?: string;
+  items: NavItem[];
 };
 
 /**
  * Navigation tree. Permission slugs mirror the backend seeder
  * (`back-sefidsia/src/seeders/data/permissions.ts`). Items without a
- * `permission` are visible to any authenticated user (e.g. dashboard, settings).
+ * `permission` are visible to any authenticated user.
  */
-export const navigation: NavItem[] = [
+export const navigation: NavSection[] = [
   {
-    label: "داشبورد",
-    href: "/dashboard",
-    icon: LayoutDashboard,
-  },
-  {
-    label: "کاربران",
-    icon: Users,
-    children: [
-      { label: "همه کاربران", href: "/users", icon: Users, permission: "users.read" },
-      { label: "نقش‌ها", href: "/roles", icon: ShieldCheck, permission: "roles.manage" },
-      {
-        label: "دسترسی‌ها",
-        href: "/permissions",
-        icon: KeyRound,
-        permission: "permissions.manage",
-      },
+    items: [
+      { label: "داشبورد", href: "/dashboard", icon: LayoutDashboard },
     ],
   },
   {
-    label: "پزشکان",
-    href: "/doctors",
-    icon: Stethoscope,
+    label: "مدیریت کاربران",
+    items: [
+      {
+        label: "کاربران",
+        icon: Users,
+        children: [
+          { label: "همه کاربران", href: "/users", icon: Users, permission: "users.read" },
+          { label: "نقش‌ها", href: "/roles", icon: ShieldCheck, permission: "roles.manage" },
+          {
+            label: "دسترسی‌ها",
+            href: "/permissions",
+            icon: KeyRound,
+            permission: "permissions.manage",
+          },
+        ],
+      },
+      { label: "پزشکان", href: "/doctors", icon: Stethoscope },
+    ],
   },
   {
     label: "محتوا",
-    icon: FileText,
-    children: [
+    items: [
       { label: "مقالات", href: "/articles", icon: FileText },
       {
         label: "دسته‌بندی‌ها",
@@ -77,42 +85,47 @@ export const navigation: NavItem[] = [
     ],
   },
   {
-    label: "تیکت‌ها",
-    href: "/tickets",
-    icon: LifeBuoy,
-    permission: "tickets.read",
+    label: "ارتباط و پشتیبانی",
+    items: [
+      {
+        label: "تیکت‌ها",
+        href: "/tickets",
+        icon: LifeBuoy,
+        permission: "tickets.read",
+        badge: "tickets",
+      },
+      { label: "اعلان‌ها", href: "/notifications", icon: Bell, badge: "notifications" },
+    ],
   },
   {
-    label: "گزارش‌ها و نظارت",
-    href: "/reports",
-    icon: Flag,
-    permission: ["reports.manage", "moderation.manage"],
+    label: "نظارت",
+    items: [
+      {
+        label: "گزارش‌ها",
+        href: "/reports",
+        icon: Flag,
+        permission: ["reports.manage", "moderation.manage"],
+        badge: "reports",
+      },
+      { label: "گیمیفیکیشن", href: "/gamification", icon: Trophy },
+      {
+        label: "لاگ خطاها",
+        href: "/error-logs",
+        icon: ShieldAlert,
+        permission: "errorLogs.manage",
+      },
+      {
+        label: "لاگ تغییرات",
+        href: "/audit",
+        icon: History,
+        permission: "audit.read",
+      },
+    ],
   },
   {
-    label: "اعلان‌ها",
-    href: "/notifications",
-    icon: Bell,
-  },
-  {
-    label: "گیمیفیکیشن",
-    href: "/gamification",
-    icon: Trophy,
-  },
-  {
-    label: "لاگ خطاها",
-    href: "/error-logs",
-    icon: ShieldAlert,
-    permission: "errorLogs.manage",
-  },
-  {
-    label: "لاگ تغییرات",
-    href: "/audit",
-    icon: History,
-    permission: "audit.read",
-  },
-  {
-    label: "تنظیمات",
-    href: "/settings",
-    icon: Settings,
+    label: "سیستم",
+    items: [
+      { label: "تنظیمات", href: "/settings", icon: Settings },
+    ],
   },
 ];

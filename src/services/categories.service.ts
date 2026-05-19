@@ -1,11 +1,24 @@
 import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/axios";
-import type { Category, CategoryNode } from "@/types";
+import type { Category, CategoryNode, CategoryStatus } from "@/types";
 
 export type CategoryPayload = {
   name: string;
   slug?: string;
-  description?: string;
+  shortDescription?: string | null;
+  description?: string | null;
+  icon?: string | null;
+  coverImage?: string | null;
+  color?: string | null;
   parentId?: number | null;
+  status?: CategoryStatus;
+  isFeatured?: boolean;
+  sortOrder?: number;
+  metaTitle?: string | null;
+  metaDescription?: string | null;
+  metaKeywords?: string | null;
+  ogImage?: string | null;
+  canonicalUrl?: string | null;
+  noIndex?: boolean;
 };
 
 export const categoriesService = {

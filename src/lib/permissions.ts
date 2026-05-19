@@ -1,5 +1,9 @@
 import type { PermissionSlug, User } from "@/types";
-import { ADMIN_ROLE_SLUG, DEVELOPER_ROLE_SLUG } from "@/types/permission";
+import {
+  ADMIN_PANEL_ROLES,
+  ADMIN_ROLE_SLUG,
+  DEVELOPER_ROLE_SLUG,
+} from "@/types/permission";
 
 export function isDeveloper(user: User | null): boolean {
   if (!user) return false;
@@ -9,6 +13,13 @@ export function isDeveloper(user: User | null): boolean {
 export function isAdmin(user: User | null): boolean {
   if (!user) return false;
   return user.roles?.some((r) => r.slug === ADMIN_ROLE_SLUG) ?? false;
+}
+
+/** True only for developer / admin / moderator. Gate for the admin panel. */
+export function canAccessAdminPanel(user: User | null): boolean {
+  if (!user?.roles) return false;
+  const allowed = new Set<string>(ADMIN_PANEL_ROLES);
+  return user.roles.some((r) => allowed.has(r.slug));
 }
 
 /**

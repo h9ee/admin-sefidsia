@@ -65,12 +65,27 @@ export type Tag = {
   updatedAt?: string;
 };
 
+export type CategoryStatus = "active" | "hidden" | "archived";
+
 export type Category = {
   id: number;
   name: string;
   slug: string;
+  shortDescription: string | null;
   description: string | null;
+  icon: string | null;
+  coverImage: string | null;
+  color: string | null;
   parentId: number | null;
+  status: CategoryStatus;
+  isFeatured: boolean;
+  sortOrder: number;
+  metaTitle: string | null;
+  metaDescription: string | null;
+  metaKeywords: string | null;
+  ogImage: string | null;
+  canonicalUrl: string | null;
+  noIndex: boolean;
   createdAt?: string;
   updatedAt?: string;
 };
