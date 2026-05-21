@@ -65,23 +65,33 @@ export const navigation: NavSection[] = [
           },
         ],
       },
-      { label: "پزشکان", href: "/doctors", icon: Stethoscope },
+      { label: "پزشکان", href: "/doctors", icon: Stethoscope, permission: "doctors.verify" },
     ],
   },
   {
     label: "محتوا",
     items: [
-      { label: "مقالات", href: "/articles", icon: FileText },
+      { label: "مقالات", href: "/articles", icon: FileText, permission: "articles.read" },
       {
         label: "دسته‌بندی‌ها",
         href: "/categories",
         icon: FolderTree,
         permission: "categories.manage",
       },
-      { label: "سوالات", href: "/questions", icon: MessageSquare },
-      { label: "پاسخ‌ها", href: "/answers", icon: Reply },
-      { label: "نظرات", href: "/comments", icon: MessageCircle },
-      { label: "برچسب‌ها", href: "/tags", icon: Tags },
+      { label: "سوالات", href: "/questions", icon: MessageSquare, permission: "questions.read" },
+      {
+        label: "پاسخ‌ها",
+        href: "/answers",
+        icon: Reply,
+        permission: ["answers.read", "answers.update"],
+      },
+      {
+        label: "نظرات",
+        href: "/comments",
+        icon: MessageCircle,
+        permission: ["comments.read", "comments.update", "comments.delete", "moderation.manage"],
+      },
+      { label: "برچسب‌ها", href: "/tags", icon: Tags, permission: "tags.manage" },
     ],
   },
   {
@@ -107,7 +117,7 @@ export const navigation: NavSection[] = [
         permission: ["reports.manage", "moderation.manage"],
         badge: "reports",
       },
-      { label: "گیمیفیکیشن", href: "/gamification", icon: Trophy },
+      { label: "گیمیفیکیشن", href: "/gamification", icon: Trophy, permission: "users.read" },
       {
         label: "لاگ خطاها",
         href: "/error-logs",
@@ -129,3 +139,33 @@ export const navigation: NavSection[] = [
     ],
   },
 ];
+
+/**
+ * Resolve the permission(s) required to view a given pathname, by matching the
+ * most specific nav item whose `href` prefixes the path. Returns `undefined`
+ * for routes that carry no permission (open to any authenticated admin user).
+ * Used by the route guard to 403 direct URL access.
+ */
+export function resolveNavPermission(
+  pathname: string,
+): PermissionSlug | PermissionSlug[] | undefined {
+  let bestHref = "";
+  let bestPermission: PermissionSlug | PermissionSlug[] | undefined;
+
+  const visit = (items: NavItem[]): void => {
+    for (const item of items) {
+      if (item.href) {
+        const matches =
+          pathname === item.href || pathname.startsWith(item.href + "/");
+        if (matches && item.href.length > bestHref.length) {
+          bestHref = item.href;
+          bestPermission = item.permission;
+        }
+      }
+      if (item.children) visit(item.children);
+    }
+  };
+
+  for (const section of navigation) visit(section.items);
+  return bestPermission;
+}

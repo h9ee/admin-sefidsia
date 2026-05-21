@@ -104,8 +104,12 @@ export type Article = {
   title: string;
   subtitle: string | null;
   slug: string;
+  /** Canonical permalink of the article (full URL). */
+  url: string | null;
   summary: string | null;
   content: string;
+  content2: string | null;
+  content3: string | null;
   coverImage: string | null;
   coverImageAlt: string | null;
 

@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import { useAuthStore } from "@/store/auth.store";
 import { LoadingOverlay } from "@/components/shared/loading-overlay";
 import { canAccessAdminPanel } from "@/lib/permissions";
+import { usePermission } from "@/hooks/use-permission";
+import { resolveNavPermission } from "@/config/navigation";
 
 /**
  * Lightweight client-side guard for the (admin) route group. The server-side
@@ -20,8 +22,11 @@ export function AuthGate({ children }: { children: ReactNode }) {
   const clear = useAuthStore((s) => s.clear);
   const router = useRouter();
   const pathname = usePathname();
+  const { canAny } = usePermission();
 
   const allowed = canAccessAdminPanel(user);
+  // Per-route permission: deny direct URL access to pages the user can't use.
+  const routeAllowed = canAny(resolveNavPermission(pathname));
 
   useEffect(() => {
     if (!hydrated) return;
@@ -37,10 +42,16 @@ export function AuthGate({ children }: { children: ReactNode }) {
       document.cookie = "ss-auth-presence=; Path=/; Max-Age=0; SameSite=Lax";
       toast.error("دسترسی شما به پنل مدیریت مجاز نیست.");
       router.replace("/login");
+      return;
     }
-  }, [hydrated, user, allowed, clear, router, pathname]);
+    if (!routeAllowed) {
+      // Authenticated panel user lacking this page's permission — keep the
+      // session, just show the 403 page.
+      router.replace("/403");
+    }
+  }, [hydrated, user, allowed, routeAllowed, clear, router, pathname]);
 
-  if (!hydrated || !user || !allowed) {
+  if (!hydrated || !user || !allowed || !routeAllowed) {
     return <LoadingOverlay label="در حال بررسی نشست…" />;
   }
 

@@ -70,6 +70,10 @@ const STATUS_BADGE: Record<string, { label: string; variant: "default" | "muted"
 const URL_LIKE = /^(https?:\/\/|\/)/;
 const HEX = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 
+/** Radix Select forbids empty-string item values, so the "no parent" option
+ *  uses this sentinel which we map back to `null` on submit. */
+const ROOT_VALUE = "__root__";
+
 const optionalStr = z.string().max(20000).optional().or(z.literal(""));
 const optionalUrl = z
   .string()
@@ -116,7 +120,7 @@ type Values = z.infer<typeof schema>;
 const DEFAULTS: Values = {
   name: "",
   slug: "",
-  parentId: "",
+  parentId: ROOT_VALUE,
   status: "active",
   isFeatured: false,
   sortOrder: "0",
@@ -399,7 +403,7 @@ function CategoryFormDialog({
       methods.reset({
         name: editing.name,
         slug: editing.slug,
-        parentId: editing.parentId ? String(editing.parentId) : "",
+        parentId: editing.parentId ? String(editing.parentId) : ROOT_VALUE,
         status: editing.status,
         isFeatured: editing.isFeatured,
         sortOrder: String(editing.sortOrder),
@@ -418,7 +422,7 @@ function CategoryFormDialog({
     } else {
       methods.reset({
         ...DEFAULTS,
-        parentId: presetParent ? String(presetParent.id) : "",
+        parentId: presetParent ? String(presetParent.id) : ROOT_VALUE,
       });
     }
   }, [editing, presetParent, open, methods]);
@@ -439,7 +443,7 @@ function CategoryFormDialog({
     collect(editing);
   }
   const parentOptions = [
-    { label: "— ریشه (بدون والد)", value: "" },
+    { label: "— ریشه (بدون والد)", value: ROOT_VALUE },
     ...flat
       .filter((n) => !blockedIds.has(n.id) && n.depth < MAX_CATEGORY_DEPTH)
       .map((n) => ({ label: indentedLabel(n), value: String(n.id) })),
@@ -452,7 +456,10 @@ function CategoryFormDialog({
       const payload = {
         name: values.name,
         slug: values.slug && values.slug.length > 0 ? values.slug : undefined,
-        parentId: values.parentId ? Number(values.parentId) : null,
+        parentId:
+          values.parentId && values.parentId !== ROOT_VALUE
+            ? Number(values.parentId)
+            : null,
         status: values.status,
         isFeatured: values.isFeatured,
         sortOrder: Number(values.sortOrder),

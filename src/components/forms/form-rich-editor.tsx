@@ -1,7 +1,7 @@
 "use client";
 
 import { Controller, type FieldValues, type Path, useFormContext } from "react-hook-form";
-import { RichEditor } from "@/components/editor/rich-editor";
+import Editor from "./Editor";
 import { FormField } from "./form-field";
 
 type Props<T extends FieldValues> = {
@@ -10,10 +10,8 @@ type Props<T extends FieldValues> = {
   hint?: string;
   required?: boolean;
   placeholder?: string;
-  /** Optional soft character cap for the status bar. */
-  maxLength?: number;
-  /** Hook a custom image upload dialog (e.g. Media API picker). */
-  onUploadImage?: () => void;
+  /** Show the built-in content/SEO analysis panel below the editor. */
+  analyze?: boolean;
 };
 
 export function FormRichEditor<T extends FieldValues>({
@@ -22,8 +20,7 @@ export function FormRichEditor<T extends FieldValues>({
   hint,
   required,
   placeholder,
-  maxLength,
-  onUploadImage,
+  analyze,
 }: Props<T>) {
   const { control, formState } = useFormContext<T>();
   const error = formState.errors[name]?.message as string | undefined;
@@ -34,12 +31,11 @@ export function FormRichEditor<T extends FieldValues>({
         control={control}
         name={name}
         render={({ field }) => (
-          <RichEditor
+          <Editor
             value={(field.value as string) ?? ""}
             onChange={field.onChange}
             placeholder={placeholder}
-            maxLength={maxLength}
-            onUploadImage={onUploadImage}
+            analyze={analyze}
           />
         )}
       />

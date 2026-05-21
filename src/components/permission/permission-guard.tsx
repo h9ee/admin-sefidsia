@@ -12,8 +12,9 @@ type Props = {
 };
 
 export function PermissionGuard({ permission, requireAll, fallback = null, children }: Props) {
-  const { can, canAll } = usePermission();
-  const allowed = requireAll ? canAll(permission) : can(permission);
+  const { canAll, canAny } = usePermission();
+  // Default is OR (any of the listed permissions); `requireAll` switches to AND.
+  const allowed = requireAll ? canAll(permission) : canAny(permission);
   if (!allowed) return <>{fallback}</>;
   return <>{children}</>;
 }

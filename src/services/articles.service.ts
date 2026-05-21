@@ -39,6 +39,9 @@ export type CreateArticlePayload = {
   subtitle?: string;
   summary?: string;
   content: string;
+  content2?: string;
+  content3?: string;
+  url?: string;
   coverImage?: string;
   coverImageAlt?: string;
 

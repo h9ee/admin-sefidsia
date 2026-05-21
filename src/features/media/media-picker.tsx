@@ -567,11 +567,20 @@ function MediaTile({
   deleting: boolean;
 }) {
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onToggle}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onToggle();
+        }
+      }}
+      aria-pressed={selected}
       className={cn(
-        "group relative overflow-hidden rounded-lg border bg-card text-start transition-all",
+        "group relative cursor-pointer overflow-hidden rounded-lg border bg-card text-start transition-all",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         selected
           ? "border-foreground ring-2 ring-foreground ring-offset-2 ring-offset-background"
           : "border-border hover:border-foreground/50",
@@ -622,7 +631,7 @@ function MediaTile({
           <Trash2 className="h-3.5 w-3.5" />
         )}
       </button>
-    </button>
+    </div>
   );
 }
 

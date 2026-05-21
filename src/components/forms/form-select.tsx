@@ -38,7 +38,7 @@ export function FormSelect<T extends FieldValues>({
         control={control}
         name={name}
         render={({ field }) => (
-          <Select value={field.value ?? ""} onValueChange={field.onChange}>
+          <Select dir="rtl" value={field.value ?? ""} onValueChange={field.onChange}>
             <SelectTrigger aria-invalid={!!error}>
               <SelectValue placeholder={placeholder} />
             </SelectTrigger>

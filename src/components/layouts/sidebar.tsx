@@ -4,21 +4,39 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, PanelRightClose, PanelLeftClose } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { cn } from "@/lib/cn";
 import { navigation, type NavItem, type NavSection } from "@/config/navigation";
 import { useSidebarStore } from "@/store/sidebar.store";
+import { usePermission } from "@/hooks/use-permission";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 export function Sidebar({ onItemClick }: { onItemClick?: () => void }) {
   const pathname = usePathname();
   const collapsed = useSidebarStore((s) => s.collapsed);
   const toggle = useSidebarStore((s) => s.toggleCollapsed);
+  const { canAny } = usePermission();
 
-  // Show all items unconditionally. The backend enforces access on each API
-  // call — sidebar visibility is intentionally permissive so admins always
-  // see the full surface of the panel.
-  const sections: NavSection[] = navigation;
+  // Permission-aware navigation: an item shows only if the user holds (any of)
+  // its permission(s); a parent hides when none of its children survive; a
+  // section hides when it has no visible items. `developer`/`admin` see all.
+  const sections: NavSection[] = useMemo(() => {
+    const filterItems = (items: NavItem[]): NavItem[] =>
+      items
+        .map((item): NavItem | null => {
+          if (item.children?.length) {
+            if (!canAny(item.permission)) return null;
+            const children = filterItems(item.children);
+            return children.length ? { ...item, children } : null;
+          }
+          return canAny(item.permission) ? item : null;
+        })
+        .filter((it): it is NavItem => it !== null);
+
+    return navigation
+      .map((section) => ({ ...section, items: filterItems(section.items) }))
+      .filter((section) => section.items.length > 0);
+  }, [canAny]);
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-card text-card-foreground">

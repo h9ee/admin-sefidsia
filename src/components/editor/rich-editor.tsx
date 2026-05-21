@@ -30,7 +30,7 @@ import "./editor.css";
 
 const lowlight = createLowlight(common);
 
-interface RichEditorProps {
+export interface RichEditorProps {
   value: string;
   onChange: (html: string) => void;
   placeholder?: string;
@@ -57,6 +57,7 @@ export function RichEditor({
         heading: { levels: [2, 3, 4] },
         codeBlock: false, // replaced by CodeBlockLowlight below
       }),
+      CodeBlockLowlight.configure({ lowlight }),
       Underline,
       Highlight.configure({ multicolor: false }),
       Typography,

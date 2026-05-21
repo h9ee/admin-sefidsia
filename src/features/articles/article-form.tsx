@@ -81,6 +81,13 @@ const schema = z.object({
   subtitle: z.string().max(300).optional().or(z.literal("")),
   summary: z.string().max(500).optional().or(z.literal("")),
   content: z.string().min(50, "محتوا حداقل ۵۰ کاراکتر است"),
+  content2: z.string().optional().or(z.literal("")),
+  content3: z.string().optional().or(z.literal("")),
+  url: z
+    .string()
+    .max(500)
+    .optional()
+    .or(z.literal("")),
   coverImage: z.string().optional().or(z.literal("")),
   coverImageAlt: z.string().max(255).optional().or(z.literal("")),
 
@@ -182,6 +189,22 @@ const TWITTER_CARD_OPTIONS: { label: string; value: TwitterCardType }[] = [
   { label: "خلاصه با تصویر بزرگ", value: "summary_large_image" },
 ];
 
+/* ---------------------------- Helpers ---------------------------- */
+
+/** Walks a (possibly nested) react-hook-form errors object and returns the
+ *  first human-readable `message`, so silent validation failures surface as a
+ *  toast instead of the save button appearing to do nothing. */
+function firstErrorMessage(errors: unknown): string | undefined {
+  if (!errors || typeof errors !== "object") return undefined;
+  const obj = errors as Record<string, unknown>;
+  if (typeof obj.message === "string" && obj.message) return obj.message;
+  for (const key of Object.keys(obj)) {
+    const found = firstErrorMessage(obj[key]);
+    if (found) return found;
+  }
+  return undefined;
+}
+
 /* ---------------------------- Component ---------------------------- */
 
 export function ArticleForm({ slug }: { slug?: string }) {
@@ -198,6 +221,9 @@ export function ArticleForm({ slug }: { slug?: string }) {
       subtitle: "",
       summary: "",
       content: "",
+      content2: "",
+      content3: "",
+      url: "",
       coverImage: "",
       coverImageAlt: "",
       categoryId: "",
@@ -256,10 +282,13 @@ export function ArticleForm({ slug }: { slug?: string }) {
           subtitle: a.subtitle ?? "",
           summary: a.summary ?? "",
           content: a.content,
+          content2: a.content2 ?? "",
+          content3: a.content3 ?? "",
+          url: a.url ?? "",
           coverImage: a.coverImage ?? "",
           coverImageAlt: a.coverImageAlt ?? "",
           categoryId: a.categoryId != null ? String(a.categoryId) : "",
-          tagIds: (a.tags ?? []).map((t) => t.id),
+          tagIds: (a.tags ?? []).map((t) => String(t.id)),
 
           contentType: a.contentType ?? "guide",
           audienceLevel: a.audienceLevel ?? "general",
@@ -306,7 +335,8 @@ export function ArticleForm({ slug }: { slug?: string }) {
   );
 
   const submit = (publishAfter?: boolean) =>
-    methods.handleSubmit(async (values) => {
+    methods.handleSubmit(
+    async (values) => {
       try {
         const clean = (v?: string | null) =>
           v && v.length > 0 ? v : undefined;
@@ -317,6 +347,10 @@ export function ArticleForm({ slug }: { slug?: string }) {
           subtitle: clean(values.subtitle),
           summary: clean(values.summary),
           content: values.content,
+          content2: clean(values.content2),
+          content3: clean(values.content3),
+          // Plain text, just trimmed — the site adds dashes when building links.
+          url: clean(values.url?.trim()),
           coverImage: clean(values.coverImage),
           coverImageAlt: clean(values.coverImageAlt),
 
@@ -380,7 +414,12 @@ export function ArticleForm({ slug }: { slug?: string }) {
       } catch (e) {
         toast.error(parseApiError(e).message);
       }
-    });
+    },
+    (errors) => {
+      const msg = firstErrorMessage(errors);
+      toast.error(msg ?? "لطفاً خطاهای فرم را برطرف کنید و دوباره تلاش کنید.");
+    },
+    );
 
   const scheduledAt = methods.watch("scheduledAt");
   const isScheduled =
@@ -414,15 +453,30 @@ export function ArticleForm({ slug }: { slug?: string }) {
                   rows={2}
                   hint="حداکثر ۵۰۰ کاراکتر — برای کارت‌های لیست و meta description پیش‌فرض"
                 />
+                <FormInput<Values>
+                  name="url"
+                  label="نشانی (URL) مقاله"
+                  dir="auto"
+                  placeholder="مثال: آلرژی نوزادان به پروتئین چیست"
+                  hint="متن دلخواه با فاصله وارد کنید (بدون خط تیره). در سایت، فاصله‌ها برای ساخت لینک خودکار به «-» تبدیل می‌شوند."
+                />
                 <FormRichEditor<Values>
                   name="content"
                   label="متن کامل"
                   required
                 />
+                <FormRichEditor<Values>
+                  name="content2"
+                  label="محتوای دوم"
+                />
+                <FormRichEditor<Values>
+                  name="content3"
+                  label="محتوای سوم"
+                />
               </CardContent>
             </Card>
 
-            <Tabs defaultValue="highlights">
+            <Tabs defaultValue="highlights" dir="rtl">
               <TabsList className="overflow-x-auto no-scrollbar">
                 <TabsTrigger value="highlights">
                   <Sparkles className="h-4 w-4" />
@@ -443,7 +497,7 @@ export function ArticleForm({ slug }: { slug?: string }) {
               </TabsList>
 
               {/* Highlights + FAQ */}
-              <TabsContent value="highlights">
+              <TabsContent value="highlights" dir="rtl"> 
                 <Card>
                   <CardContent className="space-y-5 pt-5">
                     <FormStringList<Values>
@@ -719,7 +773,7 @@ export function ArticleForm({ slug }: { slug?: string }) {
                 <FormMultiSelect<Values>
                   name="tagIds"
                   label="انتخاب برچسب‌ها"
-                  options={tags.map((t) => ({ label: t.name, value: t.id }))}
+                  options={tags.map((t) => ({ label: t.name, value: String(t.id) }))}
                 />
               </CardContent>
             </Card>

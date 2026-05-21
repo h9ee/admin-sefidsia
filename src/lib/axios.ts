@@ -15,6 +15,29 @@ import type {
 
 type RetryConfig = InternalAxiosRequestConfig & { _retry?: boolean };
 
+/**
+ * Endpoints where a 401 means "bad credentials" or "the refresh token itself is
+ * invalid" — NOT "the access token expired". For these we must NOT attempt a
+ * refresh-and-retry (it would loop on /auth/refresh or mask a real login error).
+ *
+ * Everything else — crucially including `/auth/me` — DOES go through refresh.
+ * Excluding all of `/auth/*` was the bug behind premature logouts: once the
+ * access token expired, the `/auth/me` permission refresh 401'd, was skipped
+ * here, and the caller cleared the session even though the refresh token was
+ * still valid.
+ */
+const NO_REFRESH_PATHS = [
+  "/auth/refresh",
+  "/auth/login",
+  "/auth/check-mobile",
+  "/auth/request-otp",
+  "/auth/verify-otp",
+  "/auth/reset-password",
+];
+
+const skipRefresh = (url?: string): boolean =>
+  !!url && NO_REFRESH_PATHS.some((p) => url.includes(p));
+
 export const api: AxiosInstance = axios.create({
   baseURL: env.apiUrl,
   withCredentials: false,
@@ -56,7 +79,7 @@ api.interceptors.response.use(
     const original = error.config as RetryConfig | undefined;
     if (!original) throw error;
 
-    if (error.response?.status === 401 && !original._retry && !original.url?.includes("/auth/")) {
+    if (error.response?.status === 401 && !original._retry && !skipRefresh(original.url)) {
       original._retry = true;
       refreshing ||= refreshAccessToken().finally(() => {
         refreshing = null;

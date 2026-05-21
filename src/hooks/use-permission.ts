@@ -2,23 +2,40 @@
 
 import { useCallback, useMemo } from "react";
 import { useAuthStore } from "@/store/auth.store";
-import { extractPermissionSlugs, hasAll, hasAny, isDeveloper } from "@/lib/permissions";
+import {
+  extractPermissionSlugs,
+  hasAll,
+  hasAny,
+  hasRole,
+  isDeveloper,
+} from "@/lib/permissions";
 import type { PermissionSlug } from "@/types";
 
+type Required = PermissionSlug | PermissionSlug[] | undefined;
+
+/**
+ * Permission-aware helpers, derived from the logged-in user's roles.
+ *
+ * - `can(x)`        → single slug, or array meaning **ALL** required (AND).
+ * - `canAll(x)`     → explicit AND (alias of `can`).
+ * - `canAny(x)`     → array meaning **ANY** required (OR).
+ * - `hasRole(slug)` → literal role check.
+ *
+ * The `developer` role short-circuits every permission check to `true`.
+ */
 export function usePermission() {
   const user = useAuthStore((s) => s.user);
   const permissions = useMemo(() => extractPermissionSlugs(user), [user]);
 
   const can = useCallback(
-    (required: PermissionSlug | PermissionSlug[] | undefined) =>
-      hasAny(user, permissions, required),
+    (required: Required) => hasAll(user, permissions, required),
     [user, permissions],
   );
-  const canAll = useCallback(
-    (required: PermissionSlug | PermissionSlug[] | undefined) =>
-      hasAll(user, permissions, required),
+  const canAny = useCallback(
+    (required: Required) => hasAny(user, permissions, required),
     [user, permissions],
   );
+  const role = useCallback((slug: string) => hasRole(user, slug), [user]);
 
   return useMemo(
     () => ({
@@ -26,8 +43,10 @@ export function usePermission() {
       permissions,
       isDeveloper: isDeveloper(user),
       can,
-      canAll,
+      canAll: can,
+      canAny,
+      hasRole: role,
     }),
-    [user, permissions, can, canAll],
+    [user, permissions, can, canAny, role],
   );
 }

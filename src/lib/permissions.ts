@@ -15,6 +15,11 @@ export function isAdmin(user: User | null): boolean {
   return user.roles?.some((r) => r.slug === ADMIN_ROLE_SLUG) ?? false;
 }
 
+/** Literal role check (no developer bypass — `hasRole('admin')` is exact). */
+export function hasRole(user: User | null, role: string): boolean {
+  return user?.roles?.some((r) => r.slug === role) ?? false;
+}
+
 /** True only for developer / admin / moderator. Gate for the admin panel. */
 export function canAccessAdminPanel(user: User | null): boolean {
   if (!user?.roles) return false;

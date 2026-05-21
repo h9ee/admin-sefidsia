@@ -1,0 +1,79 @@
+/* Theme override for react-multi-date-picker to match the B&W / dark admin UI. */
+.rmdp-wrapper,
+.rmdp-container .rmdp-wrapper {
+  background-color: var(--popover);
+  color: var(--popover-foreground);
+  border: 1px solid var(--border);
+  border-radius: 0.65rem;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+  font-family: var(--font-sans);
+}
+
+.rmdp-calendar {
+  padding: 4px;
+}
+
+.rmdp-header-values,
+.rmdp-week-day,
+.rmdp-day span,
+.rmdp-time-picker div input {
+  color: var(--foreground);
+}
+
+.rmdp-week-day {
+  color: var(--muted-foreground);
+}
+
+.rmdp-day.rmdp-deactive span,
+.rmdp-day.rmdp-disabled span {
+  color: var(--muted-foreground);
+  opacity: 0.5;
+}
+
+.rmdp-day:not(.rmdp-day-hidden):not(.rmdp-disabled):not(.rmdp-selected) span:hover {
+  background-color: var(--accent);
+  color: var(--accent-foreground);
+}
+
+.rmdp-day.rmdp-selected span:not(.highlight) {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+  box-shadow: none;
+}
+
+.rmdp-day.rmdp-today span {
+  background-color: var(--muted);
+  color: var(--foreground);
+}
+
+.rmdp-arrow {
+  border-color: var(--foreground);
+}
+
+.rmdp-arrow-container:hover {
+  background-color: var(--accent);
+  box-shadow: none;
+}
+
+.rmdp-arrow-container:hover .rmdp-arrow {
+  border-color: var(--accent-foreground);
+}
+
+/* Header (month / year) */
+.rmdp-header-values span {
+  color: var(--foreground);
+}
+
+/* Time picker */
+.rmdp-time-picker {
+  border-top: 1px solid var(--border);
+}
+.rmdp-time-picker div .rmdp-am,
+.rmdp-time-picker div input {
+  background: transparent;
+}
+
+/* Year / month panels */
+.rmdp-ym .rmdp-day span {
+  border-radius: 0.5rem;
+}
