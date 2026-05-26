@@ -48,7 +48,9 @@ export function ArticlesList() {
         page,
         limit: 10,
         q: search || undefined,
-        status: status === "all" ? undefined : status,
+        // Send "all" explicitly so the backend skips its default
+        // `status='published'` filter and returns every status.
+        status,
       })
       .then((res) => active && setData(res))
       .catch(() =>

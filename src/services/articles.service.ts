@@ -15,7 +15,8 @@ export type ArticlesQuery = {
   page?: number;
   limit?: number;
   q?: string;
-  status?: ArticleStatus;
+  /** `"all"` is a sentinel — the backend treats it as "no status filter". */
+  status?: ArticleStatus | "all";
   tagId?: number;
   categoryId?: number;
   authorId?: string;

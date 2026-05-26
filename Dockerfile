@@ -3,7 +3,7 @@ FROM node:24-alpine as builder
 WORKDIR /usr/src/app
 COPY package*.json .
 RUN npm config set registry https://npm.iranserver.com/repository/npm/
-RUN npm ci
+RUN npm ci --legacy-peer-deps --verbose
 
 FROM node:24-alpine
 WORKDIR /usr/src/app
