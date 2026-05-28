@@ -1,9 +1,77 @@
 @import "tailwindcss";
 
+/* Yekan Bakh Fa-En — bundled in `public/font/Fa-En`. Eight weights share one
+   family name so Tailwind's `font-thin … font-black` map straight through.
+   `font-display: swap` keeps text visible during the swap. */
+@font-face {
+  font-family: "Yekan Bakh";
+  font-weight: 100;
+  font-style: normal;
+  font-display: swap;
+  src: url("/font/Fa-En/Yekan Bakh Fa-En 01 Hairline.woff") format("woff"),
+    url("/font/Fa-En/Yekan Bakh Fa-En 01 Hairline.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Yekan Bakh";
+  font-weight: 200;
+  font-style: normal;
+  font-display: swap;
+  src: url("/font/Fa-En/Yekan Bakh Fa-En 02 Thin.woff") format("woff"),
+    url("/font/Fa-En/Yekan Bakh Fa-En 02 Thin.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Yekan Bakh";
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+  src: url("/font/Fa-En/Yekan Bakh Fa-En 03 Light.woff") format("woff"),
+    url("/font/Fa-En/Yekan Bakh Fa-En 03 Light.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Yekan Bakh";
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url("/font/Fa-En/Yekan-Bakh-Regular.woff") format("woff"),
+    url("/font/Fa-En/Yekan-Bakh-Regular.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Yekan Bakh";
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+  src: url("/font/Fa-En/Yekan Bakh Fa-En 05 Medium.woff") format("woff"),
+    url("/font/Fa-En/Yekan Bakh Fa-En 05 Medium.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Yekan Bakh";
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url("/font/Fa-En/Yekan-Bakh-Bold.woff") format("woff"),
+    url("/font/Fa-En/Yekan-Bakh-Bold.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Yekan Bakh";
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+  src: url("/font/Fa-En/Yekan Bakh Fa-En 07 Heavy.woff") format("woff"),
+    url("/font/Fa-En/Yekan Bakh Fa-En 07 Heavy.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Yekan Bakh";
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+  src: url("/font/Fa-En/Yekan Bakh Fa-En 08 Fat.woff") format("woff"),
+    url("/font/Fa-En/Yekan Bakh Fa-En 08 Fat.ttf") format("truetype");
+}
+
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme inline {
-  --font-sans: "Vazirmatn", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-sans: "Yekan Bakh", "Tahoma", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
 
   --color-background: var(--background);

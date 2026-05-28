@@ -10,7 +10,6 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       // Production / staging — any HTTPS host.
       { protocol: "https", hostname: "**" },
-      // Local dev — backend serves uploads from http://localhost:<port>/uploads/…
       { protocol: "http", hostname: "localhost" },
       { protocol: "http", hostname: "127.0.0.1" },
     ],

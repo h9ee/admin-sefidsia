@@ -16,6 +16,8 @@ import { doctorsService } from "@/services/doctors.service";
 import { parseApiError } from "@/lib/api-error";
 import { formatDate, formatNumber, toPersianDigits } from "@/lib/format";
 import { displayName, userInitials } from "@/lib/user";
+import { DoctorImagesCard } from "@/features/doctors/doctor-images-card";
+import { DoctorClinicsCard } from "@/features/doctors/doctor-clinics-card";
 import type { Doctor } from "@/types";
 
 export default function DoctorDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -91,10 +93,6 @@ export default function DoctorDetailPage({ params }: { params: Promise<{ id: str
                   value={toPersianDigits(doctor.experienceYears)}
                 />
                 <Info
-                  label="کلینیک"
-                  value={doctor.clinicName ?? "—"}
-                />
-                <Info
                   label="تاریخ تایید"
                   value={doctor.verifiedAt ? formatDate(doctor.verifiedAt) : "—"}
                 />
@@ -130,6 +128,13 @@ export default function DoctorDetailPage({ params }: { params: Promise<{ id: str
               ) : null}
             </CardContent>
           </Card>
+
+          <div className="lg:col-span-2">
+            <DoctorImagesCard doctor={doctor} onUpdated={setDoctor} />
+          </div>
+          <div className="lg:col-span-3">
+            <DoctorClinicsCard doctorId={doctor.id} />
+          </div>
 
           <div className="lg:col-span-3 flex flex-wrap justify-end gap-2">
             <PermissionGuard permission="doctors.verify">

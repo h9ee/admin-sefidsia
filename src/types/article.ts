@@ -54,6 +54,8 @@ export type ReferenceItem = {
   publisher?: string;
 };
 
+export type TagStatus = "approved" | "pending";
+
 export type Tag = {
   id: string;
   name: string;
@@ -61,6 +63,8 @@ export type Tag = {
   description?: string | null;
   usageCount?: number;
   followerCount?: number;
+  status?: TagStatus;
+  createdById?: number | null;
   createdAt?: string;
   updatedAt?: string;
 };

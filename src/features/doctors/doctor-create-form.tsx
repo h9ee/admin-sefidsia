@@ -13,6 +13,7 @@ import {
   FormTextarea,
   FormUserSelect,
 } from "@/components/forms";
+import { MediaField } from "@/features/media";
 import { doctorsService } from "@/services/doctors.service";
 import { parseApiError } from "@/lib/api-error";
 
@@ -35,8 +36,6 @@ const schema = z.object({
     .regex(/^\d*$/, "فقط عدد")
     .optional()
     .or(z.literal("")),
-  clinicName: z.string().max(160).optional().or(z.literal("")),
-  clinicAddress: z.string().max(500).optional().or(z.literal("")),
   city: z.string().max(80).optional().or(z.literal("")),
   province: z.string().max(80).optional().or(z.literal("")),
   education: z.string().max(2000).optional().or(z.literal("")),
@@ -44,6 +43,8 @@ const schema = z.object({
   website: z.string().url("لینک معتبر وارد کنید").optional().or(z.literal("")),
   instagram: z.string().max(120).optional().or(z.literal("")),
   linkedin: z.string().url("لینک معتبر").optional().or(z.literal("")),
+  avatar: z.string().nullable().optional(),
+  heroImage: z.string().nullable().optional(),
 });
 
 type Values = z.input<typeof schema>;
@@ -54,8 +55,6 @@ const FIELD_LABELS: Record<keyof Values, string> = {
   specialty: "تخصص",
   subSpecialty: "فوق تخصص",
   experienceYears: "سال‌های سابقه",
-  clinicName: "نام مطب / کلینیک",
-  clinicAddress: "آدرس مطب",
   city: "شهر",
   province: "استان",
   education: "تحصیلات",
@@ -63,6 +62,8 @@ const FIELD_LABELS: Record<keyof Values, string> = {
   website: "وب‌سایت",
   instagram: "اینستاگرام",
   linkedin: "لینکدین",
+  avatar: "عکس پرسنلی",
+  heroImage: "عکس کاور",
 };
 
 function firstErrorMessage(errors: unknown): string | undefined {
@@ -86,8 +87,6 @@ export function DoctorCreateForm() {
       specialty: "",
       subSpecialty: "",
       experienceYears: "",
-      clinicName: "",
-      clinicAddress: "",
       city: "",
       province: "",
       education: "",
@@ -95,6 +94,8 @@ export function DoctorCreateForm() {
       website: "",
       instagram: "",
       linkedin: "",
+      avatar: null,
+      heroImage: null,
     },
   });
 
@@ -113,8 +114,6 @@ export function DoctorCreateForm() {
             values.experienceYears && values.experienceYears.length > 0
               ? Number(values.experienceYears)
               : undefined,
-          clinicName: clean(values.clinicName),
-          clinicAddress: clean(values.clinicAddress),
           city: clean(values.city),
           province: clean(values.province),
           education: clean(values.education),
@@ -122,6 +121,8 @@ export function DoctorCreateForm() {
           website: clean(values.website),
           instagram: clean(values.instagram),
           linkedin: clean(values.linkedin),
+          avatar: values.avatar ?? undefined,
+          heroImage: values.heroImage ?? undefined,
         });
         toast.success("پزشک ایجاد شد");
         router.push(`/doctors/${doctor.id}`);
@@ -184,18 +185,37 @@ export function DoctorCreateForm() {
 
         <Card>
           <CardHeader>
-            <CardTitle>محل فعالیت</CardTitle>
+            <CardTitle>موقعیت اصلی</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <FormInput<Values> name="province" label={FIELD_LABELS.province} />
               <FormInput<Values> name="city" label={FIELD_LABELS.city} />
             </div>
-            <FormInput<Values> name="clinicName" label={FIELD_LABELS.clinicName} />
-            <FormTextarea<Values>
-              name="clinicAddress"
-              label={FIELD_LABELS.clinicAddress}
-              rows={2}
+            <p className="rounded-md border border-dashed border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+              محل‌های فعالیت (مطب، بیمارستان، …) و گالری هر کدام را پس از
+              ایجاد پزشک، از صفحه «جزئیات پزشک ← محل‌های فعالیت» اضافه کنید.
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>تصاویر</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            <MediaField<Values>
+              name="avatar"
+              label={FIELD_LABELS.avatar}
+              hint="پیشنهاد: چهره، مربعی، حداقل ۴۰۰×۴۰۰."
+              kind="image"
+            />
+            <MediaField<Values>
+              name="heroImage"
+              label={FIELD_LABELS.heroImage}
+              hint="پیشنهاد: افقی، نسبت ۱۶:۹، حداقل ۱۶۰۰×۹۰۰."
+              kind="image"
+              previewClassName="h-24 w-40"
             />
           </CardContent>
         </Card>
