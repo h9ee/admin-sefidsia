@@ -24,6 +24,7 @@ import { DataTable, type Column } from "@/components/tables/data-table";
 import { auditService } from "@/services/audit.service";
 import { formatDateTime, formatRelativeTime } from "@/lib/format";
 import { displayName, userInitials } from "@/lib/user";
+import { mediaUrl } from "@/lib/media-url";
 import type { AuditLog, Paginated } from "@/types";
 
 const ACTION_LABEL: Record<string, string> = {
@@ -111,7 +112,7 @@ export function AuditList() {
           <div className="flex items-center gap-2">
             <Avatar className="h-7 w-7">
               {l.user?.avatar ? (
-                <AvatarImage src={l.user.avatar} alt={displayName(l.user)} />
+                <AvatarImage src={mediaUrl(l.user.avatar)} alt={displayName(l.user)} />
               ) : null}
               <AvatarFallback>{userInitials(l.user)}</AvatarFallback>
             </Avatar>

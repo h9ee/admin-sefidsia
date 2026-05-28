@@ -30,6 +30,7 @@ const fallbackPermissions: Omit<Permission, "id" | "createdAt" | "updatedAt">[] 
   { slug: "tags.manage", name: "مدیریت برچسب‌ها", module: "tags", action: "manage" },
   { slug: "categories.manage", name: "مدیریت دسته‌بندی‌ها", module: "categories", action: "manage" },
   { slug: "doctors.verify", name: "تأیید پزشک", module: "doctors", action: "verify" },
+  { slug: "doctors.create", name: "ایجاد پزشک", module: "doctors", action: "create" },
   { slug: "reports.manage", name: "مدیریت گزارش‌ها", module: "reports", action: "manage" },
   { slug: "moderation.manage", name: "مدیریت نظارت", module: "moderation", action: "manage" },
   { slug: "leaderboard.manage", name: "مدیریت لیدربورد", module: "leaderboard", action: "manage" },

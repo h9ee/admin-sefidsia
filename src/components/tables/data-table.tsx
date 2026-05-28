@@ -19,6 +19,8 @@ export type Column<T> = {
   width?: string;
 };
 
+const baseImage = process.env.NEXT_PUBLIC_API_URL_IMAGE;
+
 export type Sort = { key: string; dir: "asc" | "desc" } | null;
 
 type DataTableProps<T extends { id: string | number }> = {

@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DataTable, type Column } from "@/components/tables/data-table";
+import { mediaUrl } from "@/lib/media-url";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { usePermission } from "@/hooks/use-permission";
@@ -69,7 +70,7 @@ export function DoctorsList() {
           <div className="flex items-center gap-3">
             <Avatar className="h-8 w-8">
               {d.user?.avatar ? (
-                <AvatarImage src={d.user.avatar} alt={displayName(d.user)} />
+                <AvatarImage src={mediaUrl(d.user.avatar)} alt={displayName(d.user)} />
               ) : null}
               <AvatarFallback>{userInitials(d.user)}</AvatarFallback>
             </Avatar>

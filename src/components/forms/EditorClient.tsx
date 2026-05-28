@@ -11,7 +11,7 @@ import {
   HeadingButtonsUI, Highlight, HorizontalLine, HtmlEmbed, Image, ImageCaption, ImageInsert,
   ImageResize, ImageStyle, ImageToolbar, ImageUpload, Indent, IndentBlock, Italic, Link, LinkImage, List,
   ListProperties, MediaEmbed, PageBreak, Paragraph, ParagraphButtonUI, RemoveFormat, SelectAll,
-  SimpleUploadAdapter, SourceEditing, SpecialCharacters, SpecialCharactersEssentials,
+  SourceEditing, SpecialCharacters, SpecialCharactersEssentials,
   Strikethrough, Subscript, Superscript, Table, TableCellProperties, TableProperties,
   TableToolbar, TodoList, Underline
 } from 'ckeditor5';
@@ -25,6 +25,53 @@ import { Label } from '@/components/ui/label';
 
 import { BarChart2 } from 'lucide-react';
 import { showToast } from './toast/showToast';
+import { mediaService } from '@/services/media.service';
+import { mediaUrl } from '@/lib/media-url';
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+/**
+ * Custom CKEditor 5 upload adapter that pushes files through the project's
+ * `/media` endpoint (via `mediaService.upload`) instead of CKEditor's built-in
+ * `SimpleUploadAdapter`. This gives us:
+ *   - The correct API base URL (from `NEXT_PUBLIC_API_URL`).
+ *   - Auth (axios attaches the access token from localStorage).
+ *   - Progress reporting and abort.
+ *   - The new `NEXT_PUBLIC_API_URL_IMAGE` prefix on the returned URL.
+ */
+class SefidsiaUploadAdapter {
+  private loader: any;
+  private controller: AbortController;
+
+  constructor(loader: any) {
+    this.loader = loader;
+    this.controller = new AbortController();
+  }
+
+  async upload(): Promise<{ default: string }> {
+    const file: File = await this.loader.file;
+    if (!file) throw new Error('فایلی برای آپلود انتخاب نشده است');
+    const item = await mediaService.upload({
+      file,
+      folder: 'articles',
+      onProgress: (p) => {
+        this.loader.uploadTotal = file.size;
+        this.loader.uploaded = Math.round(p * file.size);
+      },
+      signal: this.controller.signal,
+    });
+    return { default: mediaUrl(item.url) };
+  }
+
+  abort(): void {
+    this.controller.abort();
+  }
+}
+
+function SefidsiaUploadAdapterPlugin(editor: CKEditorInstance): void {
+  (editor.plugins.get('FileRepository') as any).createUploadAdapter = (loader: any) =>
+    new SefidsiaUploadAdapter(loader);
+}
 
 const RichTextEditorComponent = memo((
   {
@@ -34,34 +81,6 @@ const RichTextEditorComponent = memo((
     useProse = false
   }: { value: string; onChange: (data: string) => void; placeholder?: string; useProse?: boolean }
 ) => {
-  const uploadHeaders = useMemo<Record<string, string>>(() => {
-    const headers: Record<string, string> = {};
-
-    if (typeof document === 'undefined') return headers;
-
-    const tokenCookie = document.cookie
-      .split('; ')
-      .find((row) => row.startsWith('admin-shop='));
-
-    if (!tokenCookie) return headers;
-
-    try {
-      const [, value] = tokenCookie.split('=');
-      if (!value) return headers;
-      headers.Authorization = `Bearer ${decodeURIComponent(value)}`;
-      return headers;
-    } catch (error) {
-      console.error('Failed to parse auth token for editor upload', error);
-      return headers;
-    }
-  }, []);
-
-  const uploadUrl = useMemo(() => {
-    const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? '';
-    if (!base) return '/images-upload?u=1';
-    return `${base.replace(/\/$/, '')}/images-upload?u=1`;
-  }, []);
-
   const editorConfig = useMemo(() => ({
     licenseKey: 'GPL',
     language: { ui: 'fa', content: 'fa' },
@@ -81,8 +100,10 @@ const RichTextEditorComponent = memo((
       Image, ImageToolbar, ImageStyle, ImageCaption,
       ImageInsert, ImageResize, ImageUpload,
       MediaEmbed, HtmlEmbed, SourceEditing, Fullscreen,
-      SimpleUploadAdapter
     ],
+    // Register our custom upload adapter (pushes files through `/media` via
+    // `mediaService.upload` — replaces the broken SimpleUploadAdapter setup).
+    extraPlugins: [SefidsiaUploadAdapterPlugin],
     toolbar: {
       items: [
         'undo', 'redo', '|',
@@ -112,12 +133,8 @@ const RichTextEditorComponent = memo((
     table: {
       contentToolbar: ['tableColumn', 'tableRow', 'mergeTableCells', 'tableProperties', 'tableCellProperties']
     },
-    simpleUpload: {
-      uploadUrl,
-      headers: uploadHeaders,
-    },
     ui: { viewportOffset: { top: 64 } }
-  }), [placeholder, uploadHeaders, uploadUrl]);
+  }), [placeholder]);
 
   const handleReady = (editor: CKEditorInstance) => {
     // نمایش هشدارهای CKEditor با Toast

@@ -12,6 +12,23 @@ export type DoctorsQuery = {
   sortOrder?: "ASC" | "DESC";
 };
 
+export type CreateDoctorPayload = {
+  userId: number;
+  medicalCode: string;
+  specialty: string;
+  subSpecialty?: string;
+  clinicName?: string;
+  clinicAddress?: string;
+  city?: string;
+  province?: string;
+  education?: string;
+  experienceYears?: number;
+  biography?: string;
+  website?: string;
+  instagram?: string;
+  linkedin?: string;
+};
+
 export const doctorsService = {
   list(params: DoctorsQuery = {}) {
     return apiList<Doctor>("/doctors", params);
@@ -24,5 +41,12 @@ export const doctorsService = {
   },
   verify(id: string, status: "approved" | "rejected", reason?: string) {
     return apiPost<Doctor>(`/doctors/${id}/verify`, { status, reason });
+  },
+  /**
+   * Admin: create a doctor profile for an existing user. The user's `userType`
+   * is bumped to `doctor` and the `doctor` role is attached automatically.
+   */
+  create(payload: CreateDoctorPayload) {
+    return apiPost<Doctor>("/doctors", payload);
   },
 };

@@ -22,6 +22,7 @@ import { usersService } from "@/services/users.service";
 import { parseApiError } from "@/lib/api-error";
 import { formatDate } from "@/lib/format";
 import { displayName, userInitials } from "@/lib/user";
+import { mediaUrl } from "@/lib/media-url";
 import type { Paginated, User, UserStatus, UserType } from "@/types";
 
 export function UsersList() {
@@ -66,7 +67,7 @@ export function UsersList() {
         cell: (u) => (
           <div className="flex items-center gap-3">
             <Avatar className="h-8 w-8">
-              {u.avatar ? <AvatarImage src={u.avatar} alt={displayName(u)} /> : null}
+              {u.avatar ? <AvatarImage src={mediaUrl(u.avatar)} alt={displayName(u)} /> : null}
               <AvatarFallback>{userInitials(u)}</AvatarFallback>
             </Avatar>
             <div className="leading-tight">

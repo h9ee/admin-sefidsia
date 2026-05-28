@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Stethoscope, Trophy, BadgeCheck, Hourglass } from "lucide-react";
+import Link from "next/link";
+import { Stethoscope, Trophy, BadgeCheck, Hourglass, Plus } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { PermissionGuard } from "@/components/permission/permission-guard";
 import { DoctorsList } from "@/features/doctors/doctors-list";
 import { doctorsService } from "@/services/doctors.service";
 import { formatNumber, toPersianDigits } from "@/lib/format";
@@ -33,6 +36,16 @@ export default function DoctorsPage() {
       <PageHeader
         title="پزشکان"
         description="مدیریت تایید پزشکان و مشاهده رتبه‌بندی فعال‌ترین‌ها."
+        actions={
+          <PermissionGuard permission="doctors.create">
+            <Button asChild>
+              <Link href="/doctors/new">
+                <Plus />
+                پزشک جدید
+              </Link>
+            </Button>
+          </PermissionGuard>
+        }
       />
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard label="کل پزشکان" value={ranking.length} icon={Stethoscope} />

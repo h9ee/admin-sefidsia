@@ -277,6 +277,26 @@ export function ArticleForm({ slug }: { slug?: string }) {
       .getBySlug(slug)
       .then((a) => {
         setArticleId(a.id);
+        // Robust fallbacks: read the FK column if present, otherwise fall back
+        // to the included relation (`category.id`, `reviewer.id`). Tag ids are
+        // coerced to strings to match the multi-select option values.
+        const aAny = a as typeof a & {
+          category?: { id?: number | string } | null;
+          reviewer?: { id?: number | string } | null;
+        };
+        const categoryFK =
+          aAny.categoryId != null
+            ? String(aAny.categoryId)
+            : aAny.category?.id != null
+              ? String(aAny.category.id)
+              : "";
+        const reviewerFK =
+          aAny.reviewedByDoctorId != null
+            ? Number(aAny.reviewedByDoctorId)
+            : aAny.reviewer?.id != null
+              ? Number(aAny.reviewer.id)
+              : null;
+
         methods.reset({
           title: a.title,
           subtitle: a.subtitle ?? "",
@@ -287,7 +307,7 @@ export function ArticleForm({ slug }: { slug?: string }) {
           url: a.url ?? "",
           coverImage: a.coverImage ?? "",
           coverImageAlt: a.coverImageAlt ?? "",
-          categoryId: a.categoryId != null ? String(a.categoryId) : "",
+          categoryId: categoryFK,
           tagIds: (a.tags ?? []).map((t) => String(t.id)),
 
           contentType: a.contentType ?? "guide",
@@ -314,9 +334,7 @@ export function ArticleForm({ slug }: { slug?: string }) {
           ogImage: a.ogImage ?? "",
           twitterCard: a.twitterCard ?? null,
 
-          reviewedByDoctorId: a.reviewedByDoctorId
-            ? Number(a.reviewedByDoctorId)
-            : null,
+          reviewedByDoctorId: reviewerFK,
           requireMedicalReview: a.medicalReviewStatus !== "not_required",
 
           scheduledAt: a.scheduledAt ?? null,

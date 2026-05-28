@@ -28,6 +28,7 @@ import { usePermission } from "@/hooks/use-permission";
 import { articlesService } from "@/services/articles.service";
 import { parseApiError } from "@/lib/api-error";
 import { formatDate } from "@/lib/format";
+import { mediaUrl } from "@/lib/media-url";
 import { displayName } from "@/lib/user";
 import type { Article, ArticleStatus, Paginated } from "@/types";
 
@@ -74,7 +75,7 @@ export function ArticlesList() {
               {a.coverImage ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={a.coverImage}
+                  src={mediaUrl(a.coverImage)}
                   alt=""
                   className="h-full w-full rounded-md object-cover"
                 />
