@@ -107,9 +107,9 @@ export type Article = {
   id: string;
   title: string;
   subtitle: string | null;
-  slug: string;
-  /** Canonical permalink of the article (full URL). */
-  url: string | null;
+  /** Public URL slug — stored as readable text with spaces ("iphone pro max").
+   *  Unique. The browser-facing URL replaces spaces with dashes. */
+  url: string;
   summary: string | null;
   content: string;
   content2: string | null;

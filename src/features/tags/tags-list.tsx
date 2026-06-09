@@ -316,19 +316,27 @@ function TagFormDialog({
 
   const onSubmit = methods.handleSubmit(async (values) => {
     try {
-      const clean = (v?: string) => (v && v.length > 0 ? v : undefined);
+      // `slug` is auto-generated server-side when omitted, so undefined =
+      // "leave the slug alone (or auto-generate on create)". `description`
+      // however is user-clearable: empty must be sent as `null` so the
+      // backend column is actually cleared. Sending `undefined` drops the
+      // field and the partial PATCH treats it as "no change".
+      const optionalSlug = (v?: string) =>
+        v && v.length > 0 ? v : undefined;
+      const nullableDescription = (v?: string) =>
+        v && v.length > 0 ? v : null;
       if (editing) {
         await tagsService.update(editing.id, {
           name: values.name,
-          slug: clean(values.slug),
-          description: clean(values.description),
+          slug: optionalSlug(values.slug),
+          description: nullableDescription(values.description),
         });
         toast.success("برچسب بروزرسانی شد");
       } else {
         await tagsService.create({
           name: values.name,
-          slug: clean(values.slug),
-          description: clean(values.description),
+          slug: optionalSlug(values.slug),
+          description: nullableDescription(values.description),
         });
         toast.success("برچسب ایجاد شد");
       }

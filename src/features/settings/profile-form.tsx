@@ -61,14 +61,21 @@ export function ProfileForm() {
   const onSubmit = methods.handleSubmit(async (values) => {
     if (!user) return;
     try {
-      const clean = (v?: string) => (v && v.length > 0 ? v : undefined);
+      // Nullable text fields (backend `nullableText`): an empty string must
+      // be sent as `null` so the column is cleared. Sending `undefined`
+      // makes JSON.stringify drop the field, and the backend's partial-PATCH
+      // logic treats "missing" as "no change" — so the clear silently no-ops.
+      const nullable = (v?: string) => (v && v.length > 0 ? v : null);
+      // `email`/`mobile` are NOT nullable in the backend schema — leave them
+      // out when empty so validation doesn't reject a null payload.
+      const optional = (v?: string) => (v && v.length > 0 ? v : undefined);
       const updated = await usersService.update(user.id, {
-        firstName: clean(values.firstName),
-        lastName: clean(values.lastName),
-        email: clean(values.email),
-        mobile: clean(values.mobile),
-        bio: clean(values.bio),
-        avatar: clean(values.avatar),
+        firstName: nullable(values.firstName),
+        lastName: nullable(values.lastName),
+        bio: nullable(values.bio),
+        avatar: nullable(values.avatar),
+        email: optional(values.email),
+        mobile: optional(values.mobile),
       });
       setUser({ ...user, ...updated });
       toast.success("اطلاعات بروزرسانی شد");

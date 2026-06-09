@@ -11,6 +11,8 @@ import {
   Heading2,
   Heading3,
   Heading4,
+  Heading5,
+  Heading6,
   List,
   ListOrdered,
   ListChecks,
@@ -125,6 +127,24 @@ export function Toolbar({ editor, onUploadImage, className }: ToolbarProps) {
           }
         >
           <Heading4 className="h-4 w-4" />
+        </Btn>
+        <Btn
+          aria-label="عنوان ۵"
+          pressed={editor.isActive("heading", { level: 5 })}
+          onClick={() =>
+            editor.chain().focus().toggleHeading({ level: 5 }).run()
+          }
+        >
+          <Heading5 className="h-4 w-4" />
+        </Btn>
+        <Btn
+          aria-label="عنوان ۶"
+          pressed={editor.isActive("heading", { level: 6 })}
+          onClick={() =>
+            editor.chain().focus().toggleHeading({ level: 6 }).run()
+          }
+        >
+          <Heading6 className="h-4 w-4" />
         </Btn>
       </Group>
 

@@ -12,12 +12,17 @@ export type UsersQuery = {
 };
 
 export type UpdateUserPayload = {
-  firstName?: string;
-  lastName?: string;
-  bio?: string;
-  avatar?: string;
-  gender?: Gender;
-  birthDate?: string;
+  // `null` clears the column server-side; `undefined`/omission means "no
+  // change" (partial PATCH). The backend's `nullableText` validators
+  // accept both null and a non-empty string for these fields.
+  firstName?: string | null;
+  lastName?: string | null;
+  bio?: string | null;
+  avatar?: string | null;
+  gender?: Gender | null;
+  birthDate?: string | null;
+  // `email`/`mobile` are NOT nullable on the backend — only omit them
+  // when empty (don't send `null`).
   email?: string;
   mobile?: string;
   status?: UserStatus;

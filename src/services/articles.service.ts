@@ -85,6 +85,9 @@ export type CreateArticlePayload = {
 
   // Scheduling (ISO datetime)
   scheduledAt?: string | null;
+
+  // Publication status — admin/developer can override the default workflow.
+  status?: ArticleStatus;
 };
 
 export type ReviewArticleStatus = "approved" | "rejected" | "needs_changes";

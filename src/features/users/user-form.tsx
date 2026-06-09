@@ -88,14 +88,21 @@ export function UserForm({ id }: { id: string }) {
 
   const onSubmit = methods.handleSubmit(async (values) => {
     try {
-      const cleanString = (v?: string) => (v && v.length > 0 ? v : undefined);
+      // Nullable text fields (backend `nullableText`): empty must be sent as
+      // `null` so the column is actually cleared. Sending `undefined` drops
+      // the field from the JSON body, and the backend's partial-PATCH logic
+      // treats "missing" as "no change" — making the clear a silent no-op.
+      const nullable = (v?: string) => (v && v.length > 0 ? v : null);
+      // `email`/`mobile` are `.optional()` in the backend (not nullable) —
+      // leave them out when empty so validation doesn't reject a null.
+      const optional = (v?: string) => (v && v.length > 0 ? v : undefined);
       await usersService.update(id, {
-        firstName: cleanString(values.firstName),
-        lastName: cleanString(values.lastName),
-        email: cleanString(values.email),
-        mobile: cleanString(values.mobile),
-        bio: cleanString(values.bio),
-        avatar: cleanString(values.avatar),
+        firstName: nullable(values.firstName),
+        lastName: nullable(values.lastName),
+        bio: nullable(values.bio),
+        avatar: nullable(values.avatar),
+        email: optional(values.email),
+        mobile: optional(values.mobile),
         status: values.status,
         userType: values.userType,
       });

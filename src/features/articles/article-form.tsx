@@ -13,6 +13,7 @@ import {
   FileText,
   ImageIcon,
   ListChecks,
+  Loader2,
   Save,
   Send,
   Share2,
@@ -45,6 +46,7 @@ import {
 } from "@/services/categories.service";
 import { parseApiError } from "@/lib/api-error";
 import type {
+  ArticleStatus,
   CategoryNode,
   ContentType,
   AudienceLevel,
@@ -143,6 +145,16 @@ const schema = z.object({
 
   // Scheduling
   scheduledAt: z.string().nullable(),
+
+  // Publication status (admin/developer can override the workflow defaults).
+  status: z.enum([
+    "draft",
+    "pending_review",
+    "scheduled",
+    "published",
+    "rejected",
+    "archived",
+  ]),
 });
 
 type Values = z.infer<typeof schema>;
@@ -189,6 +201,15 @@ const TWITTER_CARD_OPTIONS: { label: string; value: TwitterCardType }[] = [
   { label: "خلاصه با تصویر بزرگ", value: "summary_large_image" },
 ];
 
+const STATUS_OPTIONS: { label: string; value: ArticleStatus }[] = [
+  { label: "پیش‌نویس", value: "draft" },
+  { label: "در انتظار بازبینی", value: "pending_review" },
+  { label: "زمان‌بندی‌شده", value: "scheduled" },
+  { label: "منتشر شده", value: "published" },
+  { label: "رد شده", value: "rejected" },
+  { label: "بایگانی‌شده", value: "archived" },
+];
+
 /* ---------------------------- Helpers ---------------------------- */
 
 /** Walks a (possibly nested) react-hook-form errors object and returns the
@@ -213,6 +234,9 @@ export function ArticleForm({ slug }: { slug?: string }) {
   const [tags, setTags] = useState<Tag[]>([]);
   const [tree, setTree] = useState<CategoryNode[]>([]);
   const [articleId, setArticleId] = useState<string | null>(null);
+  // Track which action button is in flight so we can spin only the one
+  // that was clicked and disable the rest meanwhile.
+  const [busyAction, setBusyAction] = useState<null | "draft" | "publish">(null);
 
   const methods = useForm<Values>({
     resolver: zodResolver(schema),
@@ -257,6 +281,7 @@ export function ArticleForm({ slug }: { slug?: string }) {
       requireMedicalReview: false,
 
       scheduledAt: null,
+      status: "draft",
     },
   });
 
@@ -273,6 +298,11 @@ export function ArticleForm({ slug }: { slug?: string }) {
 
   useEffect(() => {
     if (!slug) return;
+    // We MUST wait for the category tree before resetting the form,
+    // otherwise Radix Select can't bind to the `categoryId` value: the
+    // `<SelectItem value="…">` it needs to display isn't in the DOM yet,
+    // and Radix never re-resolves the label after the items arrive.
+    if (tree.length === 0) return;
     articlesService
       .getBySlug(slug)
       .then((a) => {
@@ -338,10 +368,14 @@ export function ArticleForm({ slug }: { slug?: string }) {
           requireMedicalReview: a.medicalReviewStatus !== "not_required",
 
           scheduledAt: a.scheduledAt ?? null,
+          status: a.status ?? "draft",
         });
       })
       .catch((e) => toast.error(parseApiError(e).message));
-  }, [slug, methods]);
+    // `tree.length` is in the deps so the effect re-runs once categories
+    // arrive — the early-return above means a first run with an empty tree
+    // is harmless and the actual reset happens on the second pass.
+  }, [slug, methods, tree.length]);
 
   const categoryOptions = useMemo(
     () =>
@@ -355,10 +389,17 @@ export function ArticleForm({ slug }: { slug?: string }) {
   const submit = (publishAfter?: boolean) =>
     methods.handleSubmit(
     async (values) => {
+      if (busyAction) return; // guard against double-click while a save is mid-flight
+      setBusyAction(publishAfter ? "publish" : "draft");
       try {
         const clean = (v?: string | null) =>
           v && v.length > 0 ? v : undefined;
-        const cleanArr = <T,>(arr: T[]) => (arr.length > 0 ? arr : undefined);
+        // List fields (keyTakeaways/faq/references) MUST be sent as
+        // arrays — never coerced to `undefined`. The backend skips fields
+        // that arrive as `undefined` (so it can support partial PATCHes),
+        // which means "clear all FAQs" used to vanish from the payload
+        // entirely and never persist. Sending `[]` makes the backend's
+        // `cleanList` resolve to `null` and the column is cleared.
 
         const payload = {
           title: values.title,
@@ -385,17 +426,13 @@ export function ArticleForm({ slug }: { slug?: string }) {
           allowReactions: values.allowReactions,
           isFeatured: values.isFeatured,
 
-          keyTakeaways: cleanArr(
-            values.keyTakeaways.map((s) => s.trim()).filter(Boolean),
+          keyTakeaways: values.keyTakeaways
+            .map((s) => s.trim())
+            .filter(Boolean),
+          faq: values.faq.filter(
+            (f) => f.question.trim() && f.answer.trim(),
           ),
-          faq: cleanArr(
-            values.faq.filter(
-              (f) => f.question.trim() && f.answer.trim(),
-            ),
-          ),
-          references: cleanArr(
-            values.references.filter((r) => r.title.trim()),
-          ),
+          references: values.references.filter((r) => r.title.trim()),
 
           seoTitle: clean(values.seoTitle),
           seoDescription: clean(values.seoDescription),
@@ -411,6 +448,7 @@ export function ArticleForm({ slug }: { slug?: string }) {
           requireMedicalReview: values.requireMedicalReview,
 
           scheduledAt: values.scheduledAt ?? null,
+          status: values.status,
         };
 
         const article =
@@ -431,6 +469,8 @@ export function ArticleForm({ slug }: { slug?: string }) {
         router.push("/articles");
       } catch (e) {
         toast.error(parseApiError(e).message);
+      } finally {
+        setBusyAction(null);
       }
     },
     (errors) => {
@@ -688,18 +728,34 @@ export function ArticleForm({ slug }: { slug?: string }) {
                   type="button"
                   className="w-full"
                   onClick={submit(false)}
+                  disabled={busyAction !== null}
                 >
-                  <Save className="h-4 w-4" />
-                  ذخیره پیش‌نویس
+                  {busyAction === "draft" ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
+                  {busyAction === "draft" ? "در حال ذخیره…" : "ذخیره پیش‌نویس"}
                 </Button>
                 <Button
                   type="button"
                   variant="outline"
                   className="w-full"
                   onClick={submit(true)}
+                  disabled={busyAction !== null}
                 >
-                  <Send className="h-4 w-4" />
-                  {isScheduled ? "ذخیره و زمان‌بندی" : "ذخیره و انتشار"}
+                  {busyAction === "publish" ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                  {busyAction === "publish"
+                    ? isScheduled
+                      ? "در حال زمان‌بندی…"
+                      : "در حال انتشار…"
+                    : isScheduled
+                      ? "ذخیره و زمان‌بندی"
+                      : "ذخیره و انتشار"}
                 </Button>
               </CardContent>
             </Card>
@@ -717,6 +773,20 @@ export function ArticleForm({ slug }: { slug?: string }) {
                   label="انتشار خودکار در"
                   hint="خالی بگذارید برای انتشار فوری پس از تأیید."
                   min={new Date().toISOString()}
+                />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>وضعیت انتشار</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <FormSelect<Values>
+                  name="status"
+                  label="وضعیت"
+                  options={STATUS_OPTIONS}
+                  hint="وضعیت مقاله را انتخاب کنید (فقط برای ادمین/توسعه‌دهنده اعمال می‌شود)."
                 />
               </CardContent>
             </Card>

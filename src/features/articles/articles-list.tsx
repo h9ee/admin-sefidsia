@@ -83,13 +83,13 @@ export function ArticlesList() {
             </div>
             <div className="leading-tight">
               <Link
-                href={`/articles/${a.slug}`}
+                href={`/articles/${a.url}`}
                 className="line-clamp-1 text-sm font-medium hover:underline"
               >
                 {a.title}
               </Link>
               <p className="mt-0.5 line-clamp-1 text-[11px] text-muted-foreground" dir="ltr">
-                {a.slug}
+                {a.url}
               </p>
               <div className="mt-1 flex flex-wrap gap-1">
                 {a.tags?.slice(0, 3).map((t) => (
@@ -198,14 +198,14 @@ export function ArticlesList() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem asChild>
-              <Link href={`/articles/${a.slug}`}>
+              <Link href={`/articles/${a.url}`}>
                 <Eye className="h-4 w-4" />
                 مشاهده / ویرایش
               </Link>
             </DropdownMenuItem>
             {can("articles.update") ? (
               <DropdownMenuItem asChild>
-                <Link href={`/articles/${a.slug}`}>
+                <Link href={`/articles/${a.url}`}>
                   <Edit className="h-4 w-4" />
                   ویرایش
                 </Link>

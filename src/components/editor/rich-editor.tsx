@@ -54,7 +54,7 @@ export function RichEditor({
     immediatelyRender: false,
     extensions: [
       StarterKit.configure({
-        heading: { levels: [2, 3, 4] },
+        heading: { levels: [2, 3, 4, 5, 6] },
         codeBlock: false, // replaced by CodeBlockLowlight below
       }),
       CodeBlockLowlight.configure({ lowlight }),

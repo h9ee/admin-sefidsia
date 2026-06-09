@@ -20,6 +20,8 @@ export type Question = {
   medicalWarningLevel: MedicalWarningLevel;
   seoTitle: string | null;
   seoDescription: string | null;
+  editedByTeam?: boolean;
+  editedByTeamAt?: string | null;
   createdAt: string;
   updatedAt?: string;
   user?: User;

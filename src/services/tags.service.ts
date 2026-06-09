@@ -20,7 +20,10 @@ export const tagsService = {
   create(payload: {
     name: string;
     slug?: string;
-    description?: string;
+    // `null` lets the admin explicitly clear an existing description
+    // on update; the backend's `nullable()` transform also accepts null
+    // (or empty) on create.
+    description?: string | null;
     status?: TagStatus;
   }) {
     return apiPost<Tag>("/tags", payload);
@@ -30,7 +33,7 @@ export const tagsService = {
     payload: Partial<{
       name: string;
       slug: string;
-      description: string;
+      description: string | null;
       status: TagStatus;
     }>,
   ) {
