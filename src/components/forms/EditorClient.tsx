@@ -125,6 +125,9 @@ const RichTextEditorComponent = memo((
         { model: 'heading1' as const, view: 'h1', title: 'سرفصل ۱', class: 'ck-heading_heading1' },
         { model: 'heading2' as const, view: 'h2', title: 'سرفصل ۲', class: 'ck-heading_heading2' },
         { model: 'heading3' as const, view: 'h3', title: 'سرفصل ۳', class: 'ck-heading_heading3' },
+        { model: 'heading4' as const, view: 'h4', title: 'سرفصل ۴', class: 'ck-heading_heading4' },
+        { model: 'heading5' as const, view: 'h5', title: 'سرفصل ۵', class: 'ck-heading_heading5' },
+        { model: 'heading6' as const, view: 'h6', title: 'سرفصل ۶', class: 'ck-heading_heading6' },
       ]
     },
     image: {

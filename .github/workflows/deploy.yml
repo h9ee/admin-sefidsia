@@ -1,0 +1,16 @@
+name: Deploy
+on: [push]
+jobs:
+  deploy-to-multiple-servers:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to siahsefid
+        uses: appleboy/ssh-action@v0.1.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          password: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /home/apps/admin-sefidsia
+            git pull origin main
+            docker compose up -d --build 

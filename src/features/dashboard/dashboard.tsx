@@ -19,6 +19,7 @@ import { StatCard } from "@/components/shared/stat-card";
 import { AreaChart } from "@/components/charts/area-chart";
 import { BarChart } from "@/components/charts/bar-chart";
 import { dashboardService } from "@/services/dashboard.service";
+import { RecentDoctorAnswers } from "@/features/answers/recent-doctor-answers";
 import { toPersianDigits } from "@/lib/format";
 import type { ChartPoint, DashboardData, StatsRange } from "@/types";
 
@@ -181,6 +182,12 @@ export function Dashboard() {
           icon={TagsIcon}
           loading={loading}
         />
+      </div>
+
+      {/* Recent doctor activity — self-fetches, so it doesn't block the
+          overview/stats above. */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <RecentDoctorAnswers limit={5} />
       </div>
     </div>
   );

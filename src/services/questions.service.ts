@@ -28,9 +28,15 @@ export type CreateQuestionPayload = {
   body: string;
   isAnonymous?: boolean;
   tagIds?: string[];
+  /** Free-text tag names — backend auto-creates them as `pending`. */
+  newTags?: string[];
   medicalWarningLevel?: MedicalWarningLevel;
   seoTitle?: string;
   seoDescription?: string;
+  /** Workflow status — backend applies it only for admin/developer roles. */
+  status?: QuestionStatus;
+  /** Canonical question id when marking as duplicate. `null` clears the link. */
+  duplicateOfQuestionId?: number | null;
 };
 
 export const questionsService = {
@@ -57,7 +63,45 @@ export const questionsService = {
   },
 };
 
+export type AnswersQuery = {
+  page?: number;
+  limit?: number;
+  q?: string;
+  status?: AnswerStatus;
+  isDoctorAnswer?: boolean;
+  isAccepted?: boolean;
+  /** Surface only answers with ≥1 pending report — drives the
+   *  "گزارش‌شده" tab on the admin moderation page. */
+  hasOpenReports?: boolean;
+  authorId?: string;
+  questionId?: string;
+  sortBy?: "createdAt" | "voteScore" | "commentCount" | "openReportCount";
+  sortOrder?: "ASC" | "DESC";
+};
+
+export type AnswerStats = {
+  total: number;
+  today: number;
+  last7d: number;
+  /** Percentage (0..100, one decimal place). */
+  doctorAnswerShare: number;
+  /** Percentage (0..100, one decimal place). */
+  acceptedRate: number;
+  pendingReports: number;
+};
+
 export const answersService = {
+  /** Aggregate counters for the admin moderation page header. */
+  stats() {
+    return apiGet<AnswerStats>("/answers/stats");
+  },
+  /**
+   * Global moderation listing (admin only). Backend includes the parent
+   * question on each row so the table can link straight to it.
+   */
+  list(params: AnswersQuery = {}) {
+    return apiList<Answer>("/answers", params);
+  },
   listForQuestion(questionId: string) {
     return apiGet<Answer[]>(`/questions/${questionId}/answers`);
   },

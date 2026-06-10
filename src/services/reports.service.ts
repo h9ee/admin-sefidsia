@@ -11,6 +11,9 @@ export type ReportsQuery = {
   page?: number;
   limit?: number;
   status?: ReportStatus;
+  /** Restrict to reports about a specific target (e.g. a question or answer). */
+  targetType?: ReportTargetType;
+  targetId?: string | number;
   sortBy?: "createdAt" | "status";
   sortOrder?: "ASC" | "DESC";
 };
@@ -41,7 +44,16 @@ export const moderationService = {
   }) {
     return apiPost<{ ok: boolean }>("/moderation", payload);
   },
-  logs(params: { page?: number; limit?: number } = {}) {
+  logs(
+    params: {
+      page?: number;
+      limit?: number;
+      /** Filter the log stream to a specific target (used by question/answer
+       *  detail pages to power their audit-history card). */
+      targetType?: "article" | "question" | "answer" | "comment";
+      targetId?: string | number;
+    } = {},
+  ) {
     return apiList<ModerationLog>("/moderation/logs", params);
   },
   /**

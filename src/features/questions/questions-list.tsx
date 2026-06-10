@@ -115,10 +115,20 @@ export function QuestionsList() {
       {
         key: "author",
         header: "ثبت‌کننده",
+        // Admin always sees the real author; an "anonymous-to-public" chip is
+        // added so it's obvious the byline is hidden on the live site.
         cell: (q) => (
-          <span className="text-xs">
-            {q.isAnonymous ? "ناشناس" : displayName(q.user)}
-          </span>
+          <div className="flex flex-col gap-0.5 text-xs">
+            <span>{displayName(q.user)}</span>
+            {q.isAnonymous ? (
+              <Badge
+                variant="outline"
+                className="w-fit border-amber-500/40 bg-amber-500/5 text-[10px] text-amber-700 dark:text-amber-400"
+              >
+                ناشناس برای عموم
+              </Badge>
+            ) : null}
+          </div>
         ),
       },
       {
@@ -145,6 +155,29 @@ export function QuestionsList() {
     [],
   );
 
+  /** Run a moderation/destructive op on a batch of rows, sequentially so the
+   *  backend isn't flooded. Errors don't abort the batch — they're collected
+   *  and surfaced in a single toast at the end. */
+  async function runBulk(
+    selected: Question[],
+    label: string,
+    op: (q: Question) => Promise<unknown>,
+  ) {
+    let ok = 0;
+    let fail = 0;
+    for (const q of selected) {
+      try {
+        await op(q);
+        ok += 1;
+      } catch {
+        fail += 1;
+      }
+    }
+    if (ok > 0) toast.success(`${label}: ${ok} مورد`);
+    if (fail > 0) toast.error(`${fail} مورد ناموفق بود`);
+    setReload((x) => x + 1);
+  }
+
   return (
     <DataTable<Question>
       data={data?.data ?? []}
@@ -160,6 +193,70 @@ export function QuestionsList() {
       searchPlaceholder="جستجو در سوالات…"
       loading={loading}
       columns={columns}
+      selectable={can("moderation.manage") || can("questions.delete")}
+      bulkActions={(selected) => (
+        <>
+          {can("moderation.manage") ? (
+            <>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  runBulk(selected, "پنهان شد", (q) =>
+                    moderationService.act({
+                      targetType: "question",
+                      targetId: q.id,
+                      action: "hide",
+                    }),
+                  )
+                }
+              >
+                <EyeOff className="h-4 w-4" />
+                پنهان‌سازی همه
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  runBulk(selected, "بازگردانده شد", (q) =>
+                    moderationService.act({
+                      targetType: "question",
+                      targetId: q.id,
+                      action: "restore",
+                    }),
+                  )
+                }
+              >
+                <ShieldCheck className="h-4 w-4" />
+                بازگردانی همه
+              </Button>
+            </>
+          ) : null}
+          {can("questions.delete") ? (
+            <ConfirmDialog
+              title={`حذف ${selected.length} سؤال؟`}
+              description="این عملیات قابل بازگشت نیست."
+              destructive
+              confirmLabel="حذف همه"
+              onConfirm={() =>
+                runBulk(selected, "حذف شد", (q) =>
+                  questionsService.remove(q.id),
+                )
+              }
+              trigger={
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  حذف همه
+                </Button>
+              }
+            />
+          ) : null}
+        </>
+      )}
       filters={
         <Select
           value={status}

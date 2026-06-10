@@ -22,6 +22,8 @@ export type Question = {
   seoDescription: string | null;
   editedByTeam?: boolean;
   editedByTeamAt?: string | null;
+  /** Canonical question id when `status === "duplicate"`. */
+  duplicateOfQuestionId?: number | null;
   createdAt: string;
   updatedAt?: string;
   user?: User;
@@ -43,6 +45,13 @@ export type Answer = {
   createdAt: string;
   updatedAt?: string;
   author?: User;
+  // The moderation listing (`GET /api/answers`) includes the parent
+  // question (id/slug/title/status) so the admin UI can link straight to
+  // the question without a follow-up fetch.
+  question?: Pick<Question, "id" | "slug" | "title" | "status">;
+  /** Count of `pending` reports against this answer — populated by the
+   *  moderation listing endpoint via a correlated subquery. */
+  openReportCount?: number;
 };
 
 export type CommentTargetType = "article" | "question" | "answer";
