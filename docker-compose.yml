@@ -1,13 +1,31 @@
+# Run from this folder:
+#   docker compose up -d --build
+# All settings live in this folder's `.env` — compose substitutes them into
+# both `build.args` (used by next build to inline NEXT_PUBLIC_* into the
+# JS bundle) and `env_file` (runtime env for the running container).
+
 services:
   admin:
+    container_name: ss_admin
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        # Inlined into the JS bundle at `next build` time. Without these the
+        # admin's axios baseURL is empty and API calls fall back to its own
+        # origin (e.g. /auth/check-mobile instead of /apis/auth/check-mobile).
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://admin.sefidsiah.com/apis}
+        NEXT_PUBLIC_API_URL_IMAGE: ${NEXT_PUBLIC_API_URL_IMAGE:-https://admin.sefidsiah.com/apis}
+    restart: unless-stopped
+    # Runtime env. The same `.env` ships values to the container; the few
+    # NEXT_PUBLIC_* values are also baked in at build time above.
+    env_file:
+      - .env
     ports:
-      - 4000:3000
+      - "127.0.0.1:4000:3000"
     networks:
       - sefidsiah-network
+
 networks:
   sefidsiah-network:
     driver: bridge
-
