@@ -16,6 +16,7 @@ import {
   EyeIcon,
   Flag,
   History,
+  ImagePlus,
   Link2,
   Loader2,
   Mail,
@@ -58,6 +59,7 @@ import { tagsService } from "@/services/tags.service";
 import { parseApiError } from "@/lib/api-error";
 import { formatRelativeTime, formatNumber, formatDate } from "@/lib/format";
 import { displayName, userInitials } from "@/lib/user";
+import { mediaService } from "@/services/media.service";
 import { mediaUrl } from "@/lib/media-url";
 import { usePermission } from "@/hooks/use-permission";
 import type {
@@ -491,6 +493,11 @@ export default function QuestionDetailPage({
                 </PermissionGuard>
               </CardContent>
             </Card>
+
+            {/* SEO metadata editor — seoTitle / seoDescription / ogImage. */}
+            <PermissionGuard permission="questions.update">
+              <SeoPanel question={question} onSaved={load} />
+            </PermissionGuard>
 
             {/* Reports filed against this question — read for any role with
                 `reports.manage`; review actions need `moderation.manage`. */}
@@ -1621,5 +1628,272 @@ function AuditLogPanel({
         )}
       </CardContent>
     </Card>
+  );
+}
+
+/* ---------------------------------------------------------------------------- */
+/*  SEO panel — seoTitle / seoDescription / ogImage editor for the question.    */
+/*  Soft caps (60 / 160) match Google's display limits; hard caps (160 / 255)   */
+/*  match the backend column lengths.                                           */
+/* ---------------------------------------------------------------------------- */
+
+const SEO_TITLE_HARD = 160;
+const SEO_TITLE_SOFT = 60;
+const SEO_DESC_HARD = 255;
+const SEO_DESC_SOFT = 160;
+
+function SeoPanel({
+  question,
+  onSaved,
+}: {
+  question: Question;
+  onSaved: () => void;
+}) {
+  const [title, setTitle] = React.useState(question.seoTitle ?? "");
+  const [description, setDescription] = React.useState(
+    question.seoDescription ?? "",
+  );
+  const [image, setImage] = React.useState<string | null>(question.ogImage);
+  const [saving, setSaving] = React.useState(false);
+  const [uploading, setUploading] = React.useState(false);
+  const fileRef = React.useRef<HTMLInputElement | null>(null);
+
+  // Re-sync when the parent reloads (e.g. after a save we want to drop the
+  // local form-state if the backend rejected a field).
+  React.useEffect(() => {
+    setTitle(question.seoTitle ?? "");
+    setDescription(question.seoDescription ?? "");
+    setImage(question.ogImage);
+  }, [
+    question.id,
+    question.seoTitle,
+    question.seoDescription,
+    question.ogImage,
+  ]);
+
+  const dirty =
+    (question.seoTitle ?? "") !== title ||
+    (question.seoDescription ?? "") !== description ||
+    (question.ogImage ?? null) !== (image ?? null);
+
+  async function save() {
+    setSaving(true);
+    try {
+      await questionsService.update(question.id, {
+        seoTitle: title.trim() || undefined,
+        seoDescription: description.trim() || undefined,
+        ogImage: image ?? "",
+      });
+      toast.success("اطلاعات SEO ذخیره شد");
+      onSaved();
+    } catch (e) {
+      toast.error(parseApiError(e).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function pickImage(file: File) {
+    if (!file.type.startsWith("image/")) {
+      toast.error("فقط فایل تصویری مجاز است");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("حداکثر حجم تصویر ۵ مگابایت است");
+      return;
+    }
+    setUploading(true);
+    try {
+      const item = await mediaService.upload({ file, folder: "questions" });
+      setImage(item.url);
+      toast.success("تصویر بارگذاری شد. برای ثبت روی «ذخیره» بزنید.");
+    } catch (e) {
+      toast.error(parseApiError(e).message);
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-sm">
+          <Sparkles className="h-4 w-4" />
+          سئو و کارت اشتراک‌گذاری (OG)
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <label className="text-xs font-medium text-muted-foreground">
+              عنوان سئو
+            </label>
+            <CharCounter
+              len={title.length}
+              soft={SEO_TITLE_SOFT}
+              hard={SEO_TITLE_HARD}
+            />
+          </div>
+          <Input
+            value={title}
+            maxLength={SEO_TITLE_HARD}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder={question.title}
+          />
+          <p className="text-[11px] text-muted-foreground">
+            اگر خالی بماند، عنوان خودِ سؤال استفاده می‌شود.
+          </p>
+        </div>
+
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <label className="text-xs font-medium text-muted-foreground">
+              توضیحات متا
+            </label>
+            <CharCounter
+              len={description.length}
+              soft={SEO_DESC_SOFT}
+              hard={SEO_DESC_HARD}
+            />
+          </div>
+          <Textarea
+            value={description}
+            maxLength={SEO_DESC_HARD}
+            rows={3}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder={(question.body ?? "").slice(0, 160)}
+          />
+          <p className="text-[11px] text-muted-foreground">
+            اگر خالی بماند، خلاصه‌ای از متن سؤال استفاده می‌شود.
+          </p>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-muted-foreground">
+            تصویر کارت اشتراک‌گذاری (OG)
+          </label>
+          {image ? (
+            <div className="flex items-center gap-3 rounded-md border border-border bg-muted/30 p-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={mediaUrl(image) ?? image}
+                alt="OG preview"
+                className="h-16 w-28 rounded object-cover"
+              />
+              <div className="min-w-0 flex-1">
+                <p
+                  className="truncate text-[11px] text-muted-foreground"
+                  dir="ltr"
+                >
+                  {image}
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setImage(null)}
+                disabled={saving}
+              >
+                <X className="h-3 w-3" />
+                حذف
+              </Button>
+            </div>
+          ) : (
+            <div className="rounded-md border border-dashed border-border bg-muted/20 p-3 text-center">
+              <p className="text-[11px] text-muted-foreground">
+                تصویری انتخاب نشده — در صورت خالی بودن، لوگوی سایت روی کارت OG
+                نشان داده می‌شود.
+              </p>
+            </div>
+          )}
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = "";
+              if (f) pickImage(f);
+            }}
+          />
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => fileRef.current?.click()}
+              disabled={uploading || saving}
+            >
+              {uploading ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <ImagePlus className="h-3 w-3" />
+              )}
+              بارگذاری تصویر
+            </Button>
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2 border-t border-border pt-3">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={!dirty || saving}
+            onClick={() => {
+              setTitle(question.seoTitle ?? "");
+              setDescription(question.seoDescription ?? "");
+              setImage(question.ogImage);
+            }}
+          >
+            <X className="h-3 w-3" />
+            انصراف
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            disabled={!dirty || saving}
+            onClick={save}
+          >
+            {saving ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <Save className="h-3 w-3" />
+            )}
+            ذخیرهٔ SEO
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function CharCounter({
+  len,
+  soft,
+  hard,
+}: {
+  len: number;
+  soft: number;
+  hard: number;
+}) {
+  const overHard = len > hard;
+  const overSoft = len > soft;
+  return (
+    <span
+      className={
+        "font-mono text-[10px] " +
+        (overHard
+          ? "text-destructive"
+          : overSoft
+            ? "text-amber-600 dark:text-amber-400"
+            : "text-muted-foreground")
+      }
+      dir="ltr"
+    >
+      {len} / {soft} (حد سخت {hard})
+    </span>
   );
 }

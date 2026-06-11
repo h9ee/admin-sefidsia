@@ -22,7 +22,12 @@ import type { User } from "@/types";
 type Step =
   | { kind: "mobile" }
   | { kind: "password"; mobile: string }
-  | { kind: "otp"; mobile: string; purpose: "login" | "reset"; expiresAt: number }
+  | {
+      kind: "otp";
+      mobile: string;
+      purpose: "login" | "reset";
+      expiresAt: number;
+    }
   | { kind: "set-password"; mode: "initial" | "reset"; resetToken?: string };
 
 const OTP_LENGTH = 5;
@@ -105,9 +110,7 @@ export function LoginForm() {
           mobile={step.mobile}
           purpose={step.purpose}
           expiresAt={step.expiresAt}
-          onResend={(newExpires) =>
-            setStep({ ...step, expiresAt: newExpires })
-          }
+          onResend={(newExpires) => setStep({ ...step, expiresAt: newExpires })}
           onLoginVerified={(payload) => {
             if (!canAccessAdminPanel(payload.user)) {
               toast.error("دسترسی شما به پنل مدیریت مجاز نیست.");
@@ -135,7 +138,7 @@ export function LoginForm() {
             toast.success(
               step.mode === "reset"
                 ? "رمز عبور تغییر کرد."
-                : "رمز عبور تنظیم شد."
+                : "رمز عبور تنظیم شد.",
             );
             try {
               const u = await authService.me();
@@ -233,7 +236,7 @@ function PasswordStep({
   mobile: string;
   onSuccess: (
     user: User,
-    tokens: { accessToken: string; refreshToken: string }
+    tokens: { accessToken: string; refreshToken: string },
   ) => void;
   onForgot: () => void;
 }) {
@@ -295,7 +298,11 @@ function PasswordStep({
             aria-label={show ? "مخفی کردن رمز" : "نمایش رمز"}
             className="absolute end-2 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground hover:text-foreground"
           >
-            {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            {show ? (
+              <EyeOff className="h-4 w-4" />
+            ) : (
+              <Eye className="h-4 w-4" />
+            )}
           </button>
         </div>
       </div>
@@ -332,7 +339,7 @@ function OtpStep({
   const [busy, setBusy] = React.useState(false);
   const [resending, setResending] = React.useState(false);
   const [remaining, setRemaining] = React.useState(
-    Math.max(0, Math.floor((expiresAt - Date.now()) / 1000))
+    Math.max(0, Math.floor((expiresAt - Date.now()) / 1000)),
   );
 
   React.useEffect(() => {
@@ -505,6 +512,18 @@ function SetPasswordStep({
       <div className="space-y-1.5">
         <Label htmlFor="pwd">رمز عبور</Label>
         <div className="relative">
+          <button
+            type="button"
+            onClick={() => setShow((s) => !s)}
+            aria-label={show ? "مخفی کردن رمز" : "نمایش رمز"}
+            className="absolute end-2 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground hover:text-foreground"
+          >
+            {show ? (
+              <EyeOff className="h-4 w-4" />
+            ) : (
+              <Eye className="h-4 w-4" />
+            )}
+          </button>
           <Input
             id="pwd"
             type={show ? "text" : "password"}
@@ -515,14 +534,6 @@ function SetPasswordStep({
             autoFocus
             className="pe-10"
           />
-          <button
-            type="button"
-            onClick={() => setShow((s) => !s)}
-            aria-label={show ? "مخفی کردن رمز" : "نمایش رمز"}
-            className="absolute end-2 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground hover:text-foreground"
-          >
-            {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-          </button>
         </div>
         <p className="text-xs text-muted-foreground">
           حداقل ۸ کاراکتر؛ ترکیبی از حرف و عدد توصیه می‌شود.

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import {
   Check,
@@ -10,9 +11,6 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
-import { useForm, FormProvider } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -30,32 +28,20 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { DataTable, type Column } from "@/components/tables/data-table";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
-import { FormInput } from "@/components/forms/form-input";
-import { FormTextarea } from "@/components/forms/form-textarea";
 import { PermissionGuard } from "@/components/permission/permission-guard";
 import { usePermission } from "@/hooks/use-permission";
 import { tagsService } from "@/services/tags.service";
 import { parseApiError } from "@/lib/api-error";
-import { formatNumber, slugify } from "@/lib/format";
+import { formatNumber } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import type { Paginated, Tag, TagStatus } from "@/types";
 
-const schema = z.object({
-  name: z.string().min(2, "نام الزامی است").max(80),
-  slug: z
-    .string()
-    .min(2)
-    .max(120)
-    .regex(/^[a-z0-9-]+$/, "فقط حروف کوچک انگلیسی، عدد و -")
-    .optional()
-    .or(z.literal("")),
-  description: z.string().max(500).optional().or(z.literal("")),
-});
-type Values = z.infer<typeof schema>;
+// The create/edit form (schema + fields) now lives on its own pages
+// (`/tags/new` and `/tags/[id]/edit`) inside `features/tags/tag-form.tsx`.
+// Only the list-level state remains in this file.
 
 const STATUS_FILTERS: { value: TagStatus | "all"; label: string }[] = [
   { value: "all", label: "همه" },
@@ -71,8 +57,6 @@ export function TagsList() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<TagStatus | "all">("all");
   const [reload, setReload] = useState(0);
-  const [editing, setEditing] = useState<Tag | null>(null);
-  const [open, setOpen] = useState(false);
   const [mergingFrom, setMergingFrom] = useState<Tag | null>(null);
 
   useEffect(() => {
@@ -123,11 +107,35 @@ export function TagsList() {
       {
         key: "description",
         header: "توضیح",
-        cell: (t) => (
-          <span className="line-clamp-1 text-xs text-muted-foreground">
-            {t.description ?? "—"}
-          </span>
-        ),
+        cell: (t) => {
+          // Description is now rich-text HTML. Strip tags for the preview so
+          // editors see the actual prose instead of `<p>...</p>` noise.
+          const plain = (t.description ?? "").replace(/<[^>]+>/g, "").trim();
+          return (
+            <span className="line-clamp-1 text-xs text-muted-foreground">
+              {plain || "—"}
+            </span>
+          );
+        },
+      },
+      {
+        key: "seo",
+        header: "سئو",
+        cell: (t) => {
+          const filled = [t.seoTitle, t.seoDescription, t.ogImage].filter(
+            Boolean,
+          ).length;
+          if (filled === 0) {
+            return (
+              <span className="text-[11px] text-muted-foreground">—</span>
+            );
+          }
+          return (
+            <Badge variant="outline" className="text-[10px]">
+              {filled === 3 ? "کامل" : `${filled}/۳ پر`}
+            </Badge>
+          );
+        },
       },
       {
         key: "usageCount",
@@ -186,14 +194,11 @@ export function TagsList() {
               ))}
             </div>
             <PermissionGuard permission="tags.manage">
-              <Button
-                onClick={() => {
-                  setEditing(null);
-                  setOpen(true);
-                }}
-              >
-                <Plus />
-                برچسب جدید
+              <Button asChild>
+                <Link href="/tags/new">
+                  <Plus />
+                  برچسب جدید
+                </Link>
               </Button>
             </PermissionGuard>
           </div>
@@ -229,14 +234,11 @@ export function TagsList() {
                 </DropdownMenuItem>
               ) : null}
               {can("tags.manage") ? (
-                <DropdownMenuItem
-                  onSelect={() => {
-                    setEditing(t);
-                    setOpen(true);
-                  }}
-                >
-                  <Edit className="h-4 w-4" />
-                  ویرایش
+                <DropdownMenuItem asChild>
+                  <Link href={`/tags/${t.id}/edit`}>
+                    <Edit className="h-4 w-4" />
+                    ویرایش
+                  </Link>
                 </DropdownMenuItem>
               ) : null}
               {can("tags.manage") ? (
@@ -274,115 +276,10 @@ export function TagsList() {
           setReload((x) => x + 1);
         }}
       />
-
-      <TagFormDialog
-        open={open}
-        onOpenChange={setOpen}
-        editing={editing}
-        onSaved={() => setReload((x) => x + 1)}
-      />
     </>
   );
 }
 
-function TagFormDialog({
-  open,
-  onOpenChange,
-  editing,
-  onSaved,
-}: {
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
-  editing: Tag | null;
-  onSaved: () => void;
-}) {
-  const methods = useForm<Values>({
-    resolver: zodResolver(schema),
-    defaultValues: { name: "", slug: "", description: "" },
-  });
-
-  useEffect(() => {
-    methods.reset({
-      name: editing?.name ?? "",
-      slug: editing?.slug ?? "",
-      description: editing?.description ?? "",
-    });
-  }, [editing, methods, open]);
-
-  const name = methods.watch("name");
-  useEffect(() => {
-    if (!editing && name) methods.setValue("slug", slugify(name));
-  }, [name, editing, methods]);
-
-  const onSubmit = methods.handleSubmit(async (values) => {
-    try {
-      // `slug` is auto-generated server-side when omitted, so undefined =
-      // "leave the slug alone (or auto-generate on create)". `description`
-      // however is user-clearable: empty must be sent as `null` so the
-      // backend column is actually cleared. Sending `undefined` drops the
-      // field and the partial PATCH treats it as "no change".
-      const optionalSlug = (v?: string) =>
-        v && v.length > 0 ? v : undefined;
-      const nullableDescription = (v?: string) =>
-        v && v.length > 0 ? v : null;
-      if (editing) {
-        await tagsService.update(editing.id, {
-          name: values.name,
-          slug: optionalSlug(values.slug),
-          description: nullableDescription(values.description),
-        });
-        toast.success("برچسب بروزرسانی شد");
-      } else {
-        await tagsService.create({
-          name: values.name,
-          slug: optionalSlug(values.slug),
-          description: nullableDescription(values.description),
-        });
-        toast.success("برچسب ایجاد شد");
-      }
-      onSaved();
-      onOpenChange(false);
-    } catch (e) {
-      toast.error(parseApiError(e).message);
-    }
-  });
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogTrigger asChild>
-        <span hidden />
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{editing ? "ویرایش برچسب" : "برچسب جدید"}</DialogTitle>
-          <DialogDescription>
-            هر برچسب می‌تواند به مقالات و سوالات مرتبط متصل شود.
-          </DialogDescription>
-        </DialogHeader>
-        <FormProvider {...methods}>
-          <form onSubmit={onSubmit} className="space-y-3">
-            <FormInput<Values> name="name" label="نام" required />
-            <FormInput<Values>
-              name="slug"
-              label="شناسه (اختیاری)"
-              hint="در صورت خالی بودن، خودکار از نام تولید می‌شود."
-              dir="ltr"
-            />
-            <FormTextarea<Values> name="description" label="توضیحات" rows={2} />
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                انصراف
-              </Button>
-              <Button type="submit" disabled={methods.formState.isSubmitting}>
-                ذخیره
-              </Button>
-            </DialogFooter>
-          </form>
-        </FormProvider>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 /* ------------------------------------------------------------------ */
 /*  Merge dialog                                                       */

@@ -60,7 +60,14 @@ export type Tag = {
   id: string;
   name: string;
   slug: string;
+  /** Rich-text HTML written in the tag form editor. */
   description?: string | null;
+  /** Public-facing canonical URL slug. Falls back to `slug` when null. */
+  url?: string | null;
+  /** SEO overrides for the public tag page. */
+  seoTitle?: string | null;
+  seoDescription?: string | null;
+  ogImage?: string | null;
   usageCount?: number;
   followerCount?: number;
   status?: TagStatus;

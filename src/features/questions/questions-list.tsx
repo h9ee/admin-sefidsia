@@ -5,10 +5,15 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   AlertTriangle,
+  Check,
+  Eye,
   EyeOff,
+  Loader2,
   MoreHorizontal,
   ShieldCheck,
   Trash2,
+  UserCheck,
+  UserX,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,9 +31,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { DataTable, type Column } from "@/components/tables/data-table";
-import { StatusBadge } from "@/components/shared/status-badge";
+import { DataTable, type Column, type Sort } from "@/components/tables/data-table";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { DateRangePickerFa } from "@/components/forms/date-range-picker-fa";
 import { usePermission } from "@/hooks/use-permission";
 import { questionsService } from "@/services/questions.service";
 import { moderationService } from "@/services/reports.service";
@@ -43,35 +48,145 @@ const warningLabel: Record<string, string> = {
   urgent: "ضروری",
 };
 
+/** Binary visibility filter mapped onto the underlying 5-state status enum.
+ *  approved → admin wants to see anything that's currently visible to the
+ *  public (NOT 'hidden'); the backend has no single value for "non-hidden"
+ *  so we send no filter and post-filter is unnecessary because the table
+ *  shows the per-row badge anyway. Unapproved → status === 'hidden'. */
+type Approval = "all" | "approved" | "unapproved";
+
 export function QuestionsList() {
   const { can } = usePermission();
   const [data, setData] = useState<Paginated<Question> | null>(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState<QuestionStatus | "all">("all");
+  const [approval, setApproval] = useState<Approval>("all");
+  const [sort, setSort] = useState<Sort>({ key: "createdAt", dir: "desc" });
+  const [dateRange, setDateRange] = useState<{
+    from: string | null;
+    to: string | null;
+  }>({ from: null, to: null });
   const [reload, setReload] = useState(0);
+  // Per-row in-flight indicator so the inline toggles can show a spinner
+  // without re-rendering every other row.
+  const [busyRow, setBusyRow] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
     setLoading(true);
+    // Map the binary approval filter back onto the underlying enum:
+    //  - "approved" cannot be expressed as a single backend value; the closest
+    //    is "everything except hidden", which is also the public default. We
+    //    keep `status` undefined and the rows themselves carry the badge.
+    //  - "unapproved" maps cleanly to status=hidden.
+    const statusFilter: QuestionStatus | undefined =
+      approval === "unapproved" ? "hidden" : undefined;
     questionsService
       .list({
         page,
         limit: 10,
         q: search || undefined,
-        status: status === "all" ? undefined : status,
+        status: statusFilter,
+        dateFrom: dateRange.from ?? undefined,
+        dateTo: dateRange.to ?? undefined,
+        sortBy:
+          (sort?.key as
+            | "createdAt"
+            | "voteScore"
+            | "answerCount"
+            | "viewCount"
+            | undefined) ?? undefined,
+        sortOrder: sort
+          ? sort.dir === "asc"
+            ? "ASC"
+            : "DESC"
+          : undefined,
       })
-      .then((res) => active && setData(res))
-      .catch(() =>
-        active &&
-        setData({ data: [], meta: { page, limit: 10, total: 0, totalPages: 1 } }),
+      .then((res) => {
+        if (!active) return;
+        // Client-side approved filter — backend can't express "everything
+        // except hidden" as an enum value, so when the admin specifically
+        // asked for "approved" we drop the hidden rows in the UI.
+        if (approval === "approved") {
+          res.data = res.data.filter((q) => q.status !== "hidden");
+        }
+        setData(res);
+      })
+      .catch(
+        () =>
+          active &&
+          setData({
+            data: [],
+            meta: { page, limit: 10, total: 0, totalPages: 1 },
+          }),
       )
       .finally(() => active && setLoading(false));
     return () => {
       active = false;
     };
-  }, [page, search, status, reload]);
+  }, [page, search, approval, sort, dateRange, reload]);
+
+  /** Toggle isAnonymous via questions.update. The list keeps the local row
+   *  state in sync so the badge flips before the next refetch. */
+  async function toggleAnonymous(q: Question) {
+    setBusyRow(q.id);
+    try {
+      await questionsService.update(q.id, { isAnonymous: !q.isAnonymous });
+      toast.success(
+        !q.isAnonymous
+          ? "نام ثبت‌کننده دیگر برای عموم نمایش داده نمی‌شود"
+          : "نام ثبت‌کننده برای عموم نمایش داده می‌شود",
+      );
+      // Patch in-place (no full reload) — flips the badge immediately.
+      setData((d) =>
+        d
+          ? {
+              ...d,
+              data: d.data.map((r) =>
+                r.id === q.id ? { ...r, isAnonymous: !q.isAnonymous } : r,
+              ),
+            }
+          : d,
+      );
+    } catch (e) {
+      toast.error(parseApiError(e).message);
+    } finally {
+      setBusyRow(null);
+    }
+  }
+
+  /** Toggle the binary approved/unapproved view via the moderation endpoint.
+   *  Approved = anything not hidden (we use `restore`, which sets the row
+   *  back to `active`/`open`); unapproved = `hide`. */
+  async function toggleApproval(q: Question) {
+    const goingToHide = q.status !== "hidden";
+    setBusyRow(q.id);
+    try {
+      await moderationService.act({
+        targetType: "question",
+        targetId: q.id,
+        action: goingToHide ? "hide" : "restore",
+      });
+      toast.success(goingToHide ? "سؤال پنهان شد" : "سؤال تأیید شد");
+      setData((d) =>
+        d
+          ? {
+              ...d,
+              data: d.data.map((r) =>
+                r.id === q.id
+                  ? { ...r, status: goingToHide ? "hidden" : "open" }
+                  : r,
+              ),
+            }
+          : d,
+      );
+    } catch (e) {
+      toast.error(parseApiError(e).message);
+    } finally {
+      setBusyRow(null);
+    }
+  }
 
   const columns = useMemo<Column<Question>[]>(
     () => [
@@ -90,13 +205,16 @@ export function QuestionsList() {
               >
                 {q.title}
               </Link>
-              <p className="line-clamp-1 text-[11px] text-muted-foreground">{q.body}</p>
+              <p className="line-clamp-1 text-[11px] text-muted-foreground">
+                {q.body}
+              </p>
               <div className="mt-1 flex flex-wrap gap-1">
-                {q.isAnonymous ? <Badge variant="outline">ناشناس</Badge> : null}
                 {q.medicalWarningLevel !== "normal" ? (
                   <Badge
                     variant={
-                      q.medicalWarningLevel === "urgent" ? "destructive" : "warning"
+                      q.medicalWarningLevel === "urgent"
+                        ? "destructive"
+                        : "warning"
                     }
                   >
                     {warningLabel[q.medicalWarningLevel]}
@@ -115,32 +233,116 @@ export function QuestionsList() {
       {
         key: "author",
         header: "ثبت‌کننده",
-        // Admin always sees the real author; an "anonymous-to-public" chip is
-        // added so it's obvious the byline is hidden on the live site.
+        // Admin always sees the real author; the inline button flips whether
+        // that name is exposed publicly (the `isAnonymous` flag).
+        cell: (q) => {
+          const busy = busyRow === q.id;
+          const anonymous = Boolean(q.isAnonymous);
+          return (
+            <div className="flex flex-col gap-1 text-xs">
+              <span className="font-medium">{displayName(q.user)}</span>
+              {can("questions.update") ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className={
+                    "h-6 w-fit gap-1 text-[10px] " +
+                    (anonymous
+                      ? "border-amber-500/40 bg-amber-500/5 text-amber-700 hover:bg-amber-500/10 dark:text-amber-400"
+                      : "border-emerald-500/40 bg-emerald-500/5 text-emerald-700 hover:bg-emerald-500/10 dark:text-emerald-400")
+                  }
+                  disabled={busy}
+                  onClick={() => toggleAnonymous(q)}
+                  title={
+                    anonymous
+                      ? "نام برای عموم پنهان است — کلیک برای نمایش"
+                      : "نام برای عموم نمایش داده می‌شود — کلیک برای پنهان‌سازی"
+                  }
+                >
+                  {busy ? (
+                    <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                  ) : anonymous ? (
+                    <UserX className="h-2.5 w-2.5" />
+                  ) : (
+                    <UserCheck className="h-2.5 w-2.5" />
+                  )}
+                  {anonymous ? "ناشناس برای عموم" : "نمایش نام"}
+                </Button>
+              ) : anonymous ? (
+                <Badge
+                  variant="outline"
+                  className="w-fit border-amber-500/40 bg-amber-500/5 text-[10px] text-amber-700 dark:text-amber-400"
+                >
+                  ناشناس برای عموم
+                </Badge>
+              ) : null}
+            </div>
+          );
+        },
+      },
+      {
+        key: "answerCount",
+        header: "آمار",
+        sortable: true,
         cell: (q) => (
-          <div className="flex flex-col gap-0.5 text-xs">
-            <span>{displayName(q.user)}</span>
-            {q.isAnonymous ? (
-              <Badge
-                variant="outline"
-                className="w-fit border-amber-500/40 bg-amber-500/5 text-[10px] text-amber-700 dark:text-amber-400"
-              >
-                ناشناس برای عموم
-              </Badge>
-            ) : null}
+          <div className="text-xs text-muted-foreground">
+            {formatNumber(q.answerCount)} پاسخ ·{" "}
+            {formatNumber(q.viewCount)} بازدید
           </div>
         ),
       },
       {
-        key: "stats",
-        header: "آمار",
+        key: "status",
+        header: "وضعیت",
+        // Binary toggle: approved (anything not hidden) ↔ unapproved (hidden).
+        cell: (q) => {
+          const busy = busyRow === q.id;
+          const approved = q.status !== "hidden";
+          if (!can("moderation.manage")) {
+            return (
+              <Badge variant={approved ? "success" : "warning"}>
+                {approved ? "تأیید" : "تأیید نشده"}
+              </Badge>
+            );
+          }
+          return (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className={
+                "h-7 gap-1 text-xs " +
+                (approved
+                  ? "border-emerald-500/40 bg-emerald-500/5 text-emerald-700 hover:bg-emerald-500/10 dark:text-emerald-400"
+                  : "border-amber-500/40 bg-amber-500/5 text-amber-700 hover:bg-amber-500/10 dark:text-amber-400")
+              }
+              disabled={busy}
+              onClick={() => toggleApproval(q)}
+              title={approved ? "کلیک برای عدم تأیید" : "کلیک برای تأیید"}
+            >
+              {busy ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : approved ? (
+                <Check className="h-3 w-3" />
+              ) : (
+                <EyeOff className="h-3 w-3" />
+              )}
+              {approved ? "تأیید" : "تأیید نشده"}
+            </Button>
+          );
+        },
+      },
+      {
+        key: "voteScore",
+        header: "امتیاز",
+        sortable: true,
         cell: (q) => (
-          <div className="text-xs text-muted-foreground">
-            {formatNumber(q.answerCount)} پاسخ · {formatNumber(q.viewCount)} بازدید
-          </div>
+          <span className="text-xs text-muted-foreground">
+            {formatNumber(q.voteScore)}
+          </span>
         ),
       },
-      { key: "status", header: "وضعیت", cell: (q) => <StatusBadge status={q.status} /> },
       {
         key: "createdAt",
         header: "تاریخ",
@@ -152,7 +354,7 @@ export function QuestionsList() {
         ),
       },
     ],
-    [],
+    [busyRow, can],
   );
 
   /** Run a moderation/destructive op on a batch of rows, sequentially so the
@@ -193,6 +395,11 @@ export function QuestionsList() {
       searchPlaceholder="جستجو در سوالات…"
       loading={loading}
       columns={columns}
+      sort={sort}
+      onSortChange={(s) => {
+        setSort(s);
+        setPage(1);
+      }}
       selectable={can("moderation.manage") || can("questions.delete")}
       bulkActions={(selected) => (
         <>
@@ -228,7 +435,7 @@ export function QuestionsList() {
                 }
               >
                 <ShieldCheck className="h-4 w-4" />
-                بازگردانی همه
+                تأیید همه
               </Button>
             </>
           ) : null}
@@ -258,25 +465,41 @@ export function QuestionsList() {
         </>
       )}
       filters={
-        <Select
-          value={status}
-          onValueChange={(v) => {
-            setStatus(v as QuestionStatus | "all");
-            setPage(1);
-          }}
-        >
-          <SelectTrigger className="w-44">
-            <SelectValue placeholder="وضعیت" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">همه وضعیت‌ها</SelectItem>
-            <SelectItem value="open">باز</SelectItem>
-            <SelectItem value="answered">پاسخ داده شده</SelectItem>
-            <SelectItem value="closed">بسته</SelectItem>
-            <SelectItem value="duplicate">تکراری</SelectItem>
-            <SelectItem value="hidden">مخفی</SelectItem>
-          </SelectContent>
-        </Select>
+        <>
+          <Select
+            value={approval}
+            onValueChange={(v) => {
+              setApproval(v as Approval);
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="وضعیت" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">همهٔ وضعیت‌ها</SelectItem>
+              <SelectItem value="approved">
+                <span className="inline-flex items-center gap-1">
+                  <Eye className="h-3 w-3" />
+                  تأیید
+                </span>
+              </SelectItem>
+              <SelectItem value="unapproved">
+                <span className="inline-flex items-center gap-1">
+                  <EyeOff className="h-3 w-3" />
+                  تأیید نشده
+                </span>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          <DateRangePickerFa
+            value={dateRange}
+            onChange={(v) => {
+              setDateRange(v);
+              setPage(1);
+            }}
+          />
+        </>
       }
       rowActions={(q) => (
         <DropdownMenu>
@@ -286,46 +509,6 @@ export function QuestionsList() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            {can("moderation.manage") ? (
-              <>
-                <DropdownMenuItem
-                  onClick={async () => {
-                    try {
-                      await moderationService.act({
-                        targetType: "question",
-                        targetId: q.id,
-                        action: "hide",
-                      });
-                      setReload((x) => x + 1);
-                      toast.success("سوال پنهان شد");
-                    } catch (e) {
-                      toast.error(parseApiError(e).message);
-                    }
-                  }}
-                >
-                  <EyeOff className="h-4 w-4" />
-                  پنهان‌سازی
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={async () => {
-                    try {
-                      await moderationService.act({
-                        targetType: "question",
-                        targetId: q.id,
-                        action: "restore",
-                      });
-                      setReload((x) => x + 1);
-                      toast.success("سوال بازگردانده شد");
-                    } catch (e) {
-                      toast.error(parseApiError(e).message);
-                    }
-                  }}
-                >
-                  <ShieldCheck className="h-4 w-4" />
-                  بازگردانی
-                </DropdownMenuItem>
-              </>
-            ) : null}
             {can("questions.delete") ? (
               <>
                 <DropdownMenuSeparator />
@@ -344,7 +527,10 @@ export function QuestionsList() {
                     }
                   }}
                   trigger={
-                    <DropdownMenuItem destructive onSelect={(e) => e.preventDefault()}>
+                    <DropdownMenuItem
+                      destructive
+                      onSelect={(e) => e.preventDefault()}
+                    >
                       <Trash2 className="h-4 w-4" />
                       حذف
                     </DropdownMenuItem>

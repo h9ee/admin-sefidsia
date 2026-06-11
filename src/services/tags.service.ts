@@ -10,6 +10,20 @@ export type TagsQuery = {
   sortOrder?: "ASC" | "DESC";
 };
 
+export type TagFormPayload = {
+  name: string;
+  slug?: string;
+  /** Public canonical URL slug — unique. Defaults to `slug` server-side. */
+  url?: string;
+  /** Rich-text HTML. `null` clears the field; `undefined` leaves it unchanged. */
+  description?: string | null;
+  /** SEO overrides. Same null/undefined contract as `description`. */
+  seoTitle?: string | null;
+  seoDescription?: string | null;
+  ogImage?: string | null;
+  status?: TagStatus;
+};
+
 export const tagsService = {
   list(params: TagsQuery = {}) {
     return apiList<Tag>("/tags", params);
@@ -17,26 +31,10 @@ export const tagsService = {
   get(id: string) {
     return apiGet<Tag>(`/tags/${id}`);
   },
-  create(payload: {
-    name: string;
-    slug?: string;
-    // `null` lets the admin explicitly clear an existing description
-    // on update; the backend's `nullable()` transform also accepts null
-    // (or empty) on create.
-    description?: string | null;
-    status?: TagStatus;
-  }) {
+  create(payload: TagFormPayload) {
     return apiPost<Tag>("/tags", payload);
   },
-  update(
-    id: string,
-    payload: Partial<{
-      name: string;
-      slug: string;
-      description: string | null;
-      status: TagStatus;
-    }>,
-  ) {
+  update(id: string, payload: Partial<TagFormPayload>) {
     return apiPatch<Tag>(`/tags/${id}`, payload);
   },
   remove(id: string) {

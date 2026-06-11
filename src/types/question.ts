@@ -20,6 +20,9 @@ export type Question = {
   medicalWarningLevel: MedicalWarningLevel;
   seoTitle: string | null;
   seoDescription: string | null;
+  /** Optional cover/OG image — used for the public OG card and as the
+   *  hero on the question detail page. Falls back to the site logo. */
+  ogImage: string | null;
   editedByTeam?: boolean;
   editedByTeamAt?: string | null;
   /** Canonical question id when `status === "duplicate"`. */

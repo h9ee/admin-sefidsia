@@ -21,6 +21,9 @@ export type QuestionsQuery = {
   trending?: boolean;
   sortBy?: "createdAt" | "voteScore" | "answerCount" | "viewCount";
   sortOrder?: "ASC" | "DESC";
+  /** ISO date strings for the createdAt range filter. */
+  dateFrom?: string;
+  dateTo?: string;
 };
 
 export type CreateQuestionPayload = {
@@ -33,6 +36,8 @@ export type CreateQuestionPayload = {
   medicalWarningLevel?: MedicalWarningLevel;
   seoTitle?: string;
   seoDescription?: string;
+  /** Cover/OG image URL or backend path. Empty string clears it. */
+  ogImage?: string | null;
   /** Workflow status — backend applies it only for admin/developer roles. */
   status?: QuestionStatus;
   /** Canonical question id when marking as duplicate. `null` clears the link. */
