@@ -232,6 +232,10 @@ export function ArticleForm({ slug }: { slug?: string }) {
   const isEdit = !!slug;
   const router = useRouter();
   const [tags, setTags] = useState<Tag[]>([]);
+  // Track tags-fetch completion separately from `tags.length` — on a fresh DB
+  // the list legitimately is empty, and we must NOT keep the form's `reset`
+  // gated forever in that case.
+  const [tagsLoaded, setTagsLoaded] = useState(false);
   const [tree, setTree] = useState<CategoryNode[]>([]);
   const [articleId, setArticleId] = useState<string | null>(null);
   // Track which action button is in flight so we can spin only the one
@@ -289,7 +293,8 @@ export function ArticleForm({ slug }: { slug?: string }) {
     tagsService
       .list({ limit: 100 })
       .then((res) => setTags(res.data))
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => setTagsLoaded(true));
     categoriesService
       .listTree()
       .then((t) => setTree(t))
@@ -298,11 +303,13 @@ export function ArticleForm({ slug }: { slug?: string }) {
 
   useEffect(() => {
     if (!slug) return;
-    // We MUST wait for the category tree before resetting the form,
-    // otherwise Radix Select can't bind to the `categoryId` value: the
-    // `<SelectItem value="…">` it needs to display isn't in the DOM yet,
-    // and Radix never re-resolves the label after the items arrive.
-    if (tree.length === 0) return;
+    // We MUST wait for BOTH the category tree AND the tags list before
+    // resetting the form. Radix's Select / Combobox bind value→label at
+    // mount and won't re-resolve once items arrive, so resetting with
+    // `tagIds: ["14","15","16"]` while `tags=[]` left the multi-select
+    // visually empty even though the value was stored — which is exactly
+    // why the article's saved tags didn't appear on edit.
+    if (tree.length === 0 || !tagsLoaded) return;
     articlesService
       .getBySlug(slug)
       .then((a) => {
@@ -372,10 +379,11 @@ export function ArticleForm({ slug }: { slug?: string }) {
         });
       })
       .catch((e) => toast.error(parseApiError(e).message));
-    // `tree.length` is in the deps so the effect re-runs once categories
-    // arrive — the early-return above means a first run with an empty tree
-    // is harmless and the actual reset happens on the second pass.
-  }, [slug, methods, tree.length]);
+    // `tree.length` + `tagsLoaded` are in the deps so the effect re-runs once
+    // either dependent list finishes loading. The early-return above makes the
+    // first run (before tree/tags arrive) harmless; the actual reset happens
+    // on a later pass once both are ready.
+  }, [slug, methods, tree.length, tagsLoaded]);
 
   const categoryOptions = useMemo(
     () =>

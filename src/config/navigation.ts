@@ -19,6 +19,7 @@ import {
   ShieldAlert,
   History,
   LifeBuoy,
+  Sparkles,
 } from "lucide-react";
 
 export type NavItem = {
@@ -46,6 +47,12 @@ export const navigation: NavSection[] = [
   {
     items: [
       { label: "داشبورد", href: "/dashboard", icon: LayoutDashboard },
+      {
+        label: "دستیار هوشمند",
+        href: "/agent",
+        icon: Sparkles,
+        permission: "agent.use",
+      },
     ],
   },
   {
