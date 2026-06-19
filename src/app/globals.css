@@ -140,6 +140,11 @@
   --ring: #0a0a0a;
 
   --radius: 0.65rem;
+
+  /* Hyperlink colour used inside the rich-text editor (`.ck-content a`).
+     Light variant — sits on white. */
+  --link: hsl(212 80% 42%);
+  --link-hover: hsl(212 88% 35%);
 }
 
 .dark {
@@ -176,6 +181,10 @@
   --border: #232326;
   --input: #232326;
   --ring: #fafafa;
+
+  /* Brighter blue on the dark background so the editor's links stay readable. */
+  --link: hsl(212 90% 65%);
+  --link-hover: hsl(212 95% 75%);
 }
 
 @layer base {
@@ -300,4 +309,30 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * CKEditor — distinguish hyperlinks visually inside the editor
+ *
+ * CKEditor 5 renders the editing surface (and any read-only widget) inside
+ * `.ck-content`. By default its theme inherits the surrounding text colour,
+ * so editor-inserted links look identical to body text — the author can't
+ * see whether a word is a link without hovering. Painting them with a
+ * dedicated `--link` token (light + dark variants) restores that signal.
+ *
+ * `:where()` keeps the selector specificity flat (0,1,0) so individual
+ * page-level overrides can still win.
+ * ───────────────────────────────────────────────────────────────────────── */
+:where(.ck-content) a,
+:where(.ck-content) a:visited {
+  color: var(--link);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+  font-weight: 500;
+  transition: color 120ms ease, text-decoration-thickness 120ms ease;
+}
+:where(.ck-content) a:hover {
+  color: var(--link-hover);
+  text-decoration-thickness: 2px;
 }
