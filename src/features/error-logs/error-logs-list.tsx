@@ -216,12 +216,25 @@ export function ErrorLogsList() {
         key: "user",
         header: "کاربر",
         width: "10rem",
-        cell: (r) =>
-          r.user ? (
+        cell: (r) => {
+          // Backend now returns firstName/lastName separately — derive the
+          // display name here. Older logs may carry `name` as a fallback.
+          const u = r.user as
+            | (typeof r.user & {
+                firstName?: string | null;
+                lastName?: string | null;
+              })
+            | null
+            | undefined;
+          const display = u
+            ? [u.firstName, u.lastName].filter(Boolean).join(" ").trim() ||
+              u.name ||
+              u.username ||
+              `#${u.id}`
+            : null;
+          return u ? (
             <div className="text-xs">
-              <p className="font-medium">
-                {r.user.name || r.user.username || `#${r.user.id}`}
-              </p>
+              <p className="font-medium">{display}</p>
               {r.ip ? (
                 <p className="text-[10px] text-muted-foreground" dir="ltr">
                   {r.ip}
@@ -230,7 +243,8 @@ export function ErrorLogsList() {
             </div>
           ) : (
             <span className="text-xs text-muted-foreground">مهمان</span>
-          ),
+          );
+        },
       },
       {
         key: "createdAt",

@@ -68,6 +68,8 @@ export type Tag = {
   seoTitle?: string | null;
   seoDescription?: string | null;
   ogImage?: string | null;
+  /** Alt text for the banner / OG image. */
+  ogImageAlt?: string | null;
   usageCount?: number;
   followerCount?: number;
   status?: TagStatus;

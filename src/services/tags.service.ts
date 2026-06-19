@@ -21,6 +21,8 @@ export type TagFormPayload = {
   seoTitle?: string | null;
   seoDescription?: string | null;
   ogImage?: string | null;
+  /** Alt text for the banner / OG image — also used as `og:image:alt`. */
+  ogImageAlt?: string | null;
   status?: TagStatus;
 };
 

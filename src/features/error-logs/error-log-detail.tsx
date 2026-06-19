@@ -23,6 +23,19 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { errorLogsService } from "@/services/error-logs.service";
 import { parseApiError } from "@/lib/api-error";
 import { formatDateTime, toPersianDigits } from "@/lib/format";
+
+/**
+ * Backend now returns `firstName`/`lastName` on the joined user — older
+ * logs may still carry `name`. Derive the display string here so the
+ * dialog handles both shapes uniformly.
+ */
+function userDisplayName(
+  u: { firstName?: string | null; lastName?: string | null; name?: string | null } | null,
+): string {
+  if (!u) return "";
+  const full = [u.firstName, u.lastName].filter(Boolean).join(" ").trim();
+  return full || u.name || "";
+}
 import type { ErrorLog, ErrorLogLevel } from "@/types";
 
 type Props = {
@@ -177,14 +190,14 @@ export function ErrorLogDetailDialog({ id, onClose, onChanged }: Props) {
                 </Field>
                 <Field label="کاربر">
                   {log.user
-                    ? log.user.name ||
+                    ? userDisplayName(log.user) ||
                       log.user.username ||
                       `#${log.user.id}`
                     : "مهمان"}
                 </Field>
                 <Field label="رفع توسط">
                   {log.resolver
-                    ? log.resolver.name ||
+                    ? userDisplayName(log.resolver) ||
                       log.resolver.username ||
                       `#${log.resolver.id}`
                     : "—"}
