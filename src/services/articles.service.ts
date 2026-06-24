@@ -96,8 +96,15 @@ export const articlesService = {
   list(params: ArticlesQuery = {}) {
     return apiList<Article>("/articles", params);
   },
+  /**
+   * Admin edit URLs use the dashed canonical form (matches the public
+   * client). The backend's `url` column stores the space-separated form, so
+   * we translate before the lookup — keeping the admin and the public site
+   * in lockstep with a single convention.
+   */
   getBySlug(slug: string) {
-    return apiGet<Article>(`/articles/${slug}`);
+    const backendSlug = slug.replace(/-+/g, " ");
+    return apiGet<Article>(`/articles/${encodeURIComponent(backendSlug)}`);
   },
   create(payload: CreateArticlePayload) {
     return apiPost<Article>("/articles", payload);

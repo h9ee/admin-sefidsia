@@ -30,6 +30,7 @@ import { parseApiError } from "@/lib/api-error";
 import { formatDate } from "@/lib/format";
 import { mediaUrl } from "@/lib/media-url";
 import { displayName } from "@/lib/user";
+import { articleHref } from "@/lib/article-href";
 import type { Article, ArticleStatus, Paginated } from "@/types";
 
 export function ArticlesList() {
@@ -83,7 +84,7 @@ export function ArticlesList() {
             </div>
             <div className="leading-tight">
               <Link
-                href={`/articles/${a.url}`}
+                href={articleHref(a)}
                 className="line-clamp-1 text-sm font-medium hover:underline"
               >
                 {a.title}
@@ -198,14 +199,14 @@ export function ArticlesList() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem asChild>
-              <Link href={`/articles/${a.url}`}>
+              <Link href={articleHref(a)}>
                 <Eye className="h-4 w-4" />
                 مشاهده / ویرایش
               </Link>
             </DropdownMenuItem>
             {can("articles.update") ? (
               <DropdownMenuItem asChild>
-                <Link href={`/articles/${a.url}`}>
+                <Link href={articleHref(a)}>
                   <Edit className="h-4 w-4" />
                   ویرایش
                 </Link>

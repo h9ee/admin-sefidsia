@@ -286,17 +286,18 @@ function PasswordStep({
             id="password"
             type={show ? "text" : "password"}
             autoComplete="current-password"
-            dir="ltr"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoFocus
-            className="pe-10"
+            // RTL form: padding on the start (right) leaves room for the
+            // eye toggle, anchored at `inset-s-2` (canonical RTL form).
+            className="ps-10"
           />
           <button
             type="button"
             onClick={() => setShow((s) => !s)}
             aria-label={show ? "مخفی کردن رمز" : "نمایش رمز"}
-            className="absolute end-2 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground hover:text-foreground"
+            className="absolute inset-s-2 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground hover:text-foreground"
           >
             {show ? (
               <EyeOff className="h-4 w-4" />
@@ -516,7 +517,7 @@ function SetPasswordStep({
             type="button"
             onClick={() => setShow((s) => !s)}
             aria-label={show ? "مخفی کردن رمز" : "نمایش رمز"}
-            className="absolute end-2 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground hover:text-foreground"
+            className="absolute inset-s-2 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground hover:text-foreground"
           >
             {show ? (
               <EyeOff className="h-4 w-4" />
@@ -528,11 +529,12 @@ function SetPasswordStep({
             id="pwd"
             type={show ? "text" : "password"}
             autoComplete="new-password"
-            dir="ltr"
             value={pwd}
             onChange={(e) => setPwd(e.target.value)}
             autoFocus
-            className="pe-10"
+            // RTL form: ps-10 leaves room for the eye toggle at the start
+            // (right) edge.
+            className="ps-10"
           />
         </div>
         <p className="text-xs text-muted-foreground">
@@ -546,7 +548,6 @@ function SetPasswordStep({
           id="confirm"
           type={show ? "text" : "password"}
           autoComplete="new-password"
-          dir="ltr"
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
         />

@@ -385,6 +385,20 @@ export function ArticleForm({ slug }: { slug?: string }) {
     // on a later pass once both are ready.
   }, [slug, methods, tree.length, tagsLoaded]);
 
+  // Canonical form for `url` is space-separated — the dash is reserved for the
+  // public-link rendering (`articleHref()` converts spaces → dashes). If the
+  // editor types/pastes a `-`, silently rewrite it back to a space so the
+  // value heading to the backend is always the canonical form. This kills
+  // the old "both forms accepted on disk" leakage at the source.
+  const watchedUrl = methods.watch("url");
+  useEffect(() => {
+    if (typeof watchedUrl !== "string" || !watchedUrl.includes("-")) return;
+    const cleaned = watchedUrl.replace(/-+/g, " ").replace(/\s+/g, " ");
+    if (cleaned !== watchedUrl) {
+      methods.setValue("url", cleaned, { shouldValidate: false, shouldDirty: true });
+    }
+  }, [watchedUrl, methods]);
+
   const categoryOptions = useMemo(
     () =>
       flattenTree(tree).map((n) => ({
@@ -416,8 +430,16 @@ export function ArticleForm({ slug }: { slug?: string }) {
           content: values.content,
           content2: clean(values.content2),
           content3: clean(values.content3),
-          // Plain text, just trimmed — the site adds dashes when building links.
-          url: clean(values.url?.trim()),
+          // Belt-and-braces: strip dashes here too in case any older code path
+          // injects a `-` (e.g. paste from clipboard before the watcher fires).
+          // The backend stores the canonical space-separated form; dashes only
+          // exist as the public-link rendering convention.
+          url: clean(
+            values.url
+              ?.replace(/-+/g, " ")
+              .replace(/\s+/g, " ")
+              .trim(),
+          ),
           coverImage: clean(values.coverImage),
           coverImageAlt: clean(values.coverImageAlt),
 
