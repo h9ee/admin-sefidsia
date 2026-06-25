@@ -11,6 +11,7 @@ import {
   CircleAlert,
   Tags as TagsIcon,
   Hourglass,
+  Inbox,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -182,6 +183,14 @@ export function Dashboard() {
           icon={TagsIcon}
           loading={loading}
         />
+        <MiniStat
+          label="پیام‌های تماس خوانده‌نشده"
+          value={data?.contact?.unread ?? 0}
+          icon={Inbox}
+          loading={loading}
+          href="/contact-messages"
+          highlight={!!data?.contact?.unread && data.contact.unread > 0}
+        />
       </div>
 
       {/* Recent doctor activity — self-fetches, so it doesn't block the
@@ -198,25 +207,45 @@ function MiniStat({
   value,
   icon: Icon,
   loading,
+  href,
+  highlight,
 }: {
   label: string;
   value: number;
   icon: React.ComponentType<{ className?: string }>;
   loading?: boolean;
+  href?: string;
+  highlight?: boolean;
 }) {
-  return (
-    <Card>
-      <CardContent className="flex items-center justify-between p-4">
-        <div>
-          <p className="text-[11px] text-muted-foreground">{label}</p>
-          {loading ? (
-            <Skeleton className="mt-1 h-6 w-16" />
-          ) : (
-            <p className="text-lg font-semibold tabular-nums">{toPersianDigits(value)}</p>
-          )}
-        </div>
-        <Icon className="h-4 w-4 text-muted-foreground" />
-      </CardContent>
-    </Card>
+  const body = (
+    <CardContent className="flex items-center justify-between p-4">
+      <div>
+        <p className="text-[11px] text-muted-foreground">{label}</p>
+        {loading ? (
+          <Skeleton className="mt-1 h-6 w-16" />
+        ) : (
+          <p
+            className={`text-lg font-semibold tabular-nums ${highlight ? "text-rose-600" : ""}`}
+          >
+            {toPersianDigits(value)}
+          </p>
+        )}
+      </div>
+      <Icon
+        className={`h-4 w-4 ${highlight ? "text-rose-500" : "text-muted-foreground"}`}
+      />
+    </CardContent>
   );
+  if (href) {
+    return (
+      <a href={href} className="block">
+        <Card
+          className={`transition-colors hover:bg-accent/40 ${highlight ? "border-rose-200 dark:border-rose-900/40" : ""}`}
+        >
+          {body}
+        </Card>
+      </a>
+    );
+  }
+  return <Card>{body}</Card>;
 }

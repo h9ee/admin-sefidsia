@@ -5,6 +5,7 @@ export type DashboardData = {
   qa: { totalQuestions: number; unansweredQuestions: number; totalAnswers: number };
   community: { comments: number; tags: number };
   moderation: { pendingReports: number };
+  contact: { unread: number };
 };
 
 export type StatsRange = {

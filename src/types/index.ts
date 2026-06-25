@@ -13,3 +13,4 @@ export * from "./media";
 export * from "./error-log";
 export * from "./audit";
 export * from "./ticket";
+export * from "./contact";

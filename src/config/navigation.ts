@@ -20,6 +20,7 @@ import {
   History,
   LifeBuoy,
   Sparkles,
+  Inbox,
 } from "lucide-react";
 
 export type NavItem = {
@@ -29,7 +30,7 @@ export type NavItem = {
   permission?: PermissionSlug | PermissionSlug[];
   children?: NavItem[];
   /** Optional badge key — used by sidebar to render a live counter. */
-  badge?: "tickets" | "reports" | "notifications";
+  badge?: "tickets" | "reports" | "notifications" | "contact";
 };
 
 export type NavSection = {
@@ -112,6 +113,13 @@ export const navigation: NavSection[] = [
         badge: "tickets",
       },
       { label: "اعلان‌ها", href: "/notifications", icon: Bell, badge: "notifications" },
+      {
+        label: "پیام‌های تماس",
+        href: "/contact-messages",
+        icon: Inbox,
+        permission: "moderation.manage",
+        badge: "contact",
+      },
     ],
   },
   {

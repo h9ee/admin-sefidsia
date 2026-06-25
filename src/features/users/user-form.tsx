@@ -11,11 +11,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FormInput } from "@/components/forms/form-input";
 import { FormSelect } from "@/components/forms/form-select";
-import { FormMultiSelect } from "@/components/forms/form-multi-select";
 import { FormTextarea } from "@/components/forms/form-textarea";
 import { usersService } from "@/services/users.service";
 import { rolesService } from "@/services/roles.service";
 import { parseApiError } from "@/lib/api-error";
+
+// Each user carries exactly one role at the UI level. We still call the
+// multi-role backend (POST / DELETE `/users/:id/roles`) under the hood —
+// flipping role = remove old + add new. NO_ROLE is the sentinel for
+// "هیچ نقشی" (radix Select forbids "" as an item value).
+const NO_ROLE = "__none__";
 
 const schema = z.object({
   firstName: z.string().min(1).max(80).optional().or(z.literal("")),
@@ -30,7 +35,7 @@ const schema = z.object({
   avatar: z.string().url("لینک آواتار معتبر نیست").optional().or(z.literal("")),
   status: z.enum(["active", "blocked", "pending"]),
   userType: z.enum(["normal", "doctor", "admin"]),
-  roles: z.array(z.string()),
+  roleId: z.string(),
 });
 
 type Values = z.infer<typeof schema>;
@@ -39,6 +44,10 @@ export function UserForm({ id }: { id: string }) {
   const router = useRouter();
   const [roleOptions, setRoleOptions] = useState<{ label: string; value: string }[]>([]);
   const [currentRoles, setCurrentRoles] = useState<string[]>([]);
+  // True when the loaded user already has >1 role from before single-role
+  // enforcement landed. We show a warning so the operator knows submitting
+  // will collapse them down to the picked one.
+  const [hadMultipleRoles, setHadMultipleRoles] = useState(false);
 
   const methods = useForm<Values>({
     resolver: zodResolver(schema),
@@ -51,7 +60,7 @@ export function UserForm({ id }: { id: string }) {
       avatar: "",
       status: "active",
       userType: "normal",
-      roles: [],
+      roleId: NO_ROLE,
     },
   });
 
@@ -59,7 +68,10 @@ export function UserForm({ id }: { id: string }) {
     rolesService
       .list()
       .then((roles) =>
-        setRoleOptions(roles.map((r) => ({ label: r.name, value: r.id }))),
+        setRoleOptions([
+          { label: "بدون نقش", value: NO_ROLE },
+          ...roles.map((r) => ({ label: r.name, value: r.id })),
+        ]),
       )
       .catch(() => undefined);
   }, []);
@@ -71,6 +83,7 @@ export function UserForm({ id }: { id: string }) {
       .then((u) => {
         const roles = u.roles?.map((r) => r.id) ?? [];
         setCurrentRoles(roles);
+        setHadMultipleRoles(roles.length > 1);
         methods.reset({
           firstName: u.firstName ?? "",
           lastName: u.lastName ?? "",
@@ -80,7 +93,7 @@ export function UserForm({ id }: { id: string }) {
           avatar: u.avatar ?? "",
           status: u.status,
           userType: u.userType,
-          roles,
+          roleId: roles[0] ?? NO_ROLE,
         });
       })
       .catch((e) => toast.error(parseApiError(e).message));
@@ -106,8 +119,13 @@ export function UserForm({ id }: { id: string }) {
         status: values.status,
         userType: values.userType,
       });
-      await usersService.setRoles(id, currentRoles, values.roles);
-      setCurrentRoles(values.roles);
+      // Collapse the UI's single-role selection into a 0- or 1-element list
+      // and let `setRoles` diff it against whatever the user currently has.
+      // The diff will drop any leftover multi-role rows in one go.
+      const nextRoles = values.roleId === NO_ROLE ? [] : [values.roleId];
+      await usersService.setRoles(id, currentRoles, nextRoles);
+      setCurrentRoles(nextRoles);
+      setHadMultipleRoles(false);
       toast.success("کاربر بروزرسانی شد");
       router.push("/users");
     } catch (e) {
@@ -159,11 +177,16 @@ export function UserForm({ id }: { id: string }) {
                     { label: "ادمین", value: "admin" },
                   ]}
                 />
-                <FormMultiSelect<Values>
-                  name="roles"
-                  label="نقش‌ها"
+                <FormSelect<Values>
+                  name="roleId"
+                  label="نقش"
                   options={roleOptions}
-                  placeholder="نقش‌ها را انتخاب کنید"
+                  placeholder="یک نقش انتخاب کنید"
+                  hint={
+                    hadMultipleRoles
+                      ? "این کاربر چند نقش داشت؛ با ذخیره، فقط نقش انتخاب‌شده باقی می‌ماند."
+                      : undefined
+                  }
                 />
               </CardContent>
             </Card>

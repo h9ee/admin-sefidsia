@@ -13,3 +13,4 @@ export * from "./categories.service";
 export * from "./error-logs.service";
 export * from "./tickets.service";
 export * from "./audit.service";
+export * from "./contact.service";
