@@ -34,7 +34,10 @@ const schema = z.object({
   bio: z.string().max(2000).optional().or(z.literal("")),
   avatar: z.string().url("لینک آواتار معتبر نیست").optional().or(z.literal("")),
   status: z.enum(["active", "blocked", "pending"]),
-  userType: z.enum(["normal", "doctor", "admin"]),
+  // `userType` is intentionally NOT a form field — the backend derives it
+  // from the assigned role slug on every `assignRole` call. Letting an
+  // admin pick it manually let the two go out of sync (e.g. role=doctor
+  // + userType=normal → frontend treats user as normal).
   roleId: z.string(),
 });
 
@@ -59,7 +62,6 @@ export function UserForm({ id }: { id: string }) {
       bio: "",
       avatar: "",
       status: "active",
-      userType: "normal",
       roleId: NO_ROLE,
     },
   });
@@ -70,7 +72,13 @@ export function UserForm({ id }: { id: string }) {
       .then((roles) =>
         setRoleOptions([
           { label: "بدون نقش", value: NO_ROLE },
-          ...roles.map((r) => ({ label: r.name, value: r.id })),
+          // Radix Select compares item.value against the controlled `value`
+          // as a STRING (`item.value === currentValue` after internal
+          // coercion). The backend now returns numeric ids (post UUID→INT
+          // migration) — passing them as numbers makes the trigger render
+          // empty even when a value is "selected". Force-string here AND
+          // where we seed the form, so both sides agree on the type.
+          ...roles.map((r) => ({ label: r.name, value: String(r.id) })),
         ]),
       )
       .catch(() => undefined);
@@ -81,7 +89,10 @@ export function UserForm({ id }: { id: string }) {
     usersService
       .get(id)
       .then((u) => {
-        const roles = u.roles?.map((r) => r.id) ?? [];
+        // Backend now returns numeric ids; the dropdown's Radix Select
+        // does a strict string compare, so we normalise to string here
+        // (matches `roleOptions` where we do the same).
+        const roles = u.roles?.map((r) => String(r.id)) ?? [];
         setCurrentRoles(roles);
         setHadMultipleRoles(roles.length > 1);
         methods.reset({
@@ -92,7 +103,6 @@ export function UserForm({ id }: { id: string }) {
           bio: u.bio ?? "",
           avatar: u.avatar ?? "",
           status: u.status,
-          userType: u.userType,
           roleId: roles[0] ?? NO_ROLE,
         });
       })
@@ -109,6 +119,8 @@ export function UserForm({ id }: { id: string }) {
       // `email`/`mobile` are `.optional()` in the backend (not nullable) —
       // leave them out when empty so validation doesn't reject a null.
       const optional = (v?: string) => (v && v.length > 0 ? v : undefined);
+      // `userType` is deliberately not sent — the backend's `assignRole`
+      // syncs it from the role slug, so passing both lets the two diverge.
       await usersService.update(id, {
         firstName: nullable(values.firstName),
         lastName: nullable(values.lastName),
@@ -117,7 +129,6 @@ export function UserForm({ id }: { id: string }) {
         email: optional(values.email),
         mobile: optional(values.mobile),
         status: values.status,
-        userType: values.userType,
       });
       // Collapse the UI's single-role selection into a 0- or 1-element list
       // and let `setRoles` diff it against whatever the user currently has.
@@ -169,23 +180,14 @@ export function UserForm({ id }: { id: string }) {
                   ]}
                 />
                 <FormSelect<Values>
-                  name="userType"
-                  label="نوع کاربر"
-                  options={[
-                    { label: "عادی", value: "normal" },
-                    { label: "پزشک", value: "doctor" },
-                    { label: "ادمین", value: "admin" },
-                  ]}
-                />
-                <FormSelect<Values>
                   name="roleId"
-                  label="نقش"
+                  label="نقش کاربر"
                   options={roleOptions}
                   placeholder="یک نقش انتخاب کنید"
                   hint={
                     hadMultipleRoles
                       ? "این کاربر چند نقش داشت؛ با ذخیره، فقط نقش انتخاب‌شده باقی می‌ماند."
-                      : undefined
+                      : "نقش هر کاربر منحصربه‌فرد است. تغییر نقش، نقش قبلی را جایگزین می‌کند."
                   }
                 />
               </CardContent>

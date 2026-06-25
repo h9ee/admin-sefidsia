@@ -52,13 +52,35 @@ export const usersService = {
     return apiDelete(`/users/${userId}/roles/${roleId}`);
   },
   /**
-   * Replace user's role set client-side (no batch endpoint on backend):
-   * computes diff against current roles and dispatches add/remove calls.
+   * Replace user's role set. Single-role-per-user is now a hard backend
+   * invariant — `POST /users/:id/roles` is a REPLACE (drops any prior
+   * role row before inserting the new one), and `DELETE /users/:id/roles/:roleId`
+   * wipes whichever role the user currently has.
+   *
+   * Earlier we ran an add-then-remove diff. That was wrong under the new
+   * backend: the trailing `removeRole` would erase the role we just
+   * assigned, because `removeRole` no longer filters by `roleId`. Now:
+   *
+   *   - `next` has a role → one POST. Done.
+   *   - `next` is empty   → one DELETE (any current roleId works since the
+   *                          backend drops all rows for that user anyway).
+   *   - Picked role is unchanged → no-op.
+   *
+   * `current` is kept in the signature for callers that already track it
+   * locally, even though the new logic doesn't need a full diff.
    */
   async setRoles(userId: string, current: string[], next: string[]) {
-    const toAdd = next.filter((r) => !current.includes(r));
-    const toRemove = current.filter((r) => !next.includes(r));
-    await Promise.all(toAdd.map((rid) => this.assignRole(userId, rid)));
-    await Promise.all(toRemove.map((rid) => this.removeRole(userId, rid)));
+    const nextRole = next[0];
+    if (nextRole) {
+      // No-op when the user already has exactly this role.
+      if (current.length === 1 && current[0] === nextRole) return;
+      await this.assignRole(userId, nextRole);
+      return;
+    }
+    // Clearing the role: pick any existing roleId for the DELETE URL — the
+    // backend ignores the param and removes whichever role row exists.
+    if (current.length > 0) {
+      await this.removeRole(userId, current[0]);
+    }
   },
 };
