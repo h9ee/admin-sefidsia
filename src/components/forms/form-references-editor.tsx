@@ -182,16 +182,24 @@ export function FormReferencesEditor<T extends FieldValues>({
                             />
                           </div>
                           <div className="sm:col-span-2">
-                            <Label className="text-xs">URL</Label>
+                            <Label className="text-xs">URL منبع *</Label>
                             <Input
                               value={item.url ?? ""}
                               onChange={(e) =>
                                 editRow(i, { url: e.target.value })
                               }
-                              placeholder="https://…"
+                              onBlur={(e) =>
+                                editRow(i, { url: e.target.value.trim() })
+                              }
+                              placeholder="https://www.example.com/article"
                               className="mt-1"
                               dir="ltr"
+                              required
+                              type="url"
                             />
+                            <p className="mt-1 text-[10.5px] text-muted-foreground">
+                              لینک کامل صفحه‌ی منبع، الزامی است.
+                            </p>
                           </div>
                           <div>
                             <Label className="text-xs">DOI</Label>
@@ -200,10 +208,27 @@ export function FormReferencesEditor<T extends FieldValues>({
                               onChange={(e) =>
                                 editRow(i, { doi: e.target.value })
                               }
-                              placeholder="10.1234/abcd"
+                              // Strip `https://doi.org/` / `doi:` on blur so
+                              // the user immediately sees the canonical bare
+                              // form rather than re-typing it after a paste.
+                              onBlur={(e) =>
+                                editRow(i, {
+                                  doi: e.target.value
+                                    .trim()
+                                    .replace(
+                                      /^(https?:\/\/(dx\.)?doi\.org\/|doi:\s*)/i,
+                                      "",
+                                    )
+                                    .trim(),
+                                })
+                              }
+                              placeholder="10.1056/NEJMoa1801993"
                               className="mt-1"
                               dir="ltr"
                             />
+                            <p className="mt-1 text-[10.5px] text-muted-foreground">
+                              فقط شناسه (بدون https یا doi:)
+                            </p>
                           </div>
                           <div>
                             <Label className="text-xs">PMID</Label>
@@ -212,11 +237,23 @@ export function FormReferencesEditor<T extends FieldValues>({
                               onChange={(e) =>
                                 editRow(i, { pmid: e.target.value })
                               }
+                              onBlur={(e) =>
+                                editRow(i, {
+                                  pmid: e.target.value
+                                    .trim()
+                                    .replace(/^pmid:\s*/i, "")
+                                    .trim(),
+                                })
+                              }
                               placeholder="38912345"
                               className="mt-1"
                               dir="ltr"
                               inputMode="numeric"
+                              pattern="\d*"
                             />
+                            <p className="mt-1 text-[10.5px] text-muted-foreground">
+                              فقط عدد
+                            </p>
                           </div>
                         </div>
                       )}

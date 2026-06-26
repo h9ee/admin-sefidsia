@@ -152,8 +152,11 @@ export type Article = {
   disclaimer: string | null;
 
   keyTakeaways: string[] | null;
+  commonMistakes: string[] | null;
   faq: FaqItem[] | null;
   references: ReferenceItem[] | null;
+  /** Editor-curated related article ids (ordered). */
+  relatedArticleIds: number[] | null;
 
   seoTitle: string | null;
   seoDescription: string | null;

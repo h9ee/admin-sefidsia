@@ -64,8 +64,10 @@ export type CreateArticlePayload = {
 
   // Rich blocks
   keyTakeaways?: string[];
+  commonMistakes?: string[];
   faq?: FaqItem[];
   references?: ReferenceItem[];
+  relatedArticleIds?: number[];
 
   // SEO
   seoTitle?: string;

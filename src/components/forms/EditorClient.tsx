@@ -105,19 +105,65 @@ const RichTextEditorComponent = memo((
     // `mediaService.upload` — replaces the broken SimpleUploadAdapter setup).
     extraPlugins: [SefidsiaUploadAdapterPlugin],
     toolbar: {
+      // Full toolbar — every registered plugin is exposed so editors aren't
+      // surprised by hidden capabilities. The pipe separators group related
+      // tools visually. `shouldNotGroupWhenFull: false` lets CKEditor fold
+      // overflow into a "more" dropdown on narrow viewports instead of
+      // forcing horizontal scroll.
       items: [
-        'undo', 'redo', '|',
-        'heading', '|',
-        'bold', 'italic', 'underline', 'strikethrough', '|',
-        'fontColor', 'fontBackgroundColor', 'highlight', '|',
-        'link', 'bulletedList', 'numberedList', 'todoList', '|',
-        'insertImage', 'uploadImage', '|',
-        'outdent', 'indent', 'alignment', '|',
-        'blockQuote', 'insertTable', 'mediaEmbed', 'htmlEmbed', '|',
-        'code', 'codeBlock', 'sourceEditing', '|',
-        'removeFormat', 'fullscreen'
+        'undo', 'redo',
+        '|',
+        'heading', 'fontFamily', 'fontSize',
+        '|',
+        'bold', 'italic', 'underline', 'strikethrough', 'removeFormat',
+        '|',
+        'subscript', 'superscript', 'code',
+        '|',
+        'fontColor', 'fontBackgroundColor', 'highlight',
+        '|',
+        'link', 'bulletedList', 'numberedList', 'todoList',
+        '|',
+        'outdent', 'indent', 'alignment',
+        '|',
+        'blockQuote', 'insertTable', 'horizontalLine', 'pageBreak',
+        '|',
+        'insertImage', 'uploadImage', 'mediaEmbed',
+        '|',
+        'specialCharacters', 'htmlEmbed', 'codeBlock',
+        '|',
+        'findAndReplace', 'selectAll', 'sourceEditing', 'fullscreen',
       ],
-      shouldNotGroupWhenFull: true
+      shouldNotGroupWhenFull: false,
+    },
+    // Show the inline + balloon toolbars on the image so editors don't have
+    // to scroll up to the main toolbar to change alignment / alt text.
+    fontSize: {
+      options: [10, 12, 14, 'default', 18, 20, 24, 28, 32, 36],
+      supportAllValues: true,
+    },
+    fontFamily: {
+      options: [
+        'default',
+        'Yekan Bakh, Tahoma, sans-serif',
+        'Vazirmatn, Tahoma, sans-serif',
+        'Tahoma, sans-serif',
+        'Arial, Helvetica, sans-serif',
+        'Georgia, serif',
+        'Times New Roman, Times, serif',
+        'Courier New, Courier, monospace',
+      ],
+      supportAllValues: true,
+    },
+    link: {
+      // Open external links in a new tab by default — common authoring need.
+      addTargetToExternalLinks: true,
+      decorators: {
+        openInNewTab: {
+          mode: 'manual' as const,
+          label: 'باز کردن در تب جدید',
+          attributes: { target: '_blank', rel: 'noopener noreferrer' },
+        },
+      },
     },
     heading: {
       options: [
@@ -131,10 +177,46 @@ const RichTextEditorComponent = memo((
       ]
     },
     image: {
-      toolbar: ['imageTextAlternative', '|', 'imageStyle:alignLeft', 'imageStyle:alignCenter', 'imageStyle:alignRight', '|', 'linkImage']
+      toolbar: [
+        'toggleImageCaption',
+        'imageTextAlternative',
+        '|',
+        'imageStyle:inline',
+        'imageStyle:block',
+        'imageStyle:side',
+        'imageStyle:alignLeft',
+        'imageStyle:alignCenter',
+        'imageStyle:alignRight',
+        '|',
+        'resizeImage',
+        '|',
+        'linkImage',
+      ],
+      // Resize via percentage so images stay responsive when the article
+      // column width changes.
+      resizeOptions: [
+        { name: 'resizeImage:original', value: null, label: 'اندازه اصلی' },
+        { name: 'resizeImage:50', value: '50', label: '۵۰٪' },
+        { name: 'resizeImage:75', value: '75', label: '۷۵٪' },
+        { name: 'resizeImage:100', value: '100', label: '۱۰۰٪' },
+      ],
+      resizeUnit: '%' as const,
     },
     table: {
-      contentToolbar: ['tableColumn', 'tableRow', 'mergeTableCells', 'tableProperties', 'tableCellProperties']
+      contentToolbar: [
+        'tableColumn',
+        'tableRow',
+        'mergeTableCells',
+        '|',
+        'tableProperties',
+        'tableCellProperties',
+      ],
+      // Default the borders to match the article body table styling.
+      tableProperties: {
+        defaultProperties: {
+          alignment: 'right' as const,
+        },
+      },
     },
     ui: { viewportOffset: { top: 64 } }
   }), [placeholder]);

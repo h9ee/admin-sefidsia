@@ -14,6 +14,7 @@ import {
   ImageIcon,
   ListChecks,
   Loader2,
+  Plus,
   Save,
   Send,
   Share2,
@@ -21,6 +22,7 @@ import {
   Stethoscope,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -33,6 +35,7 @@ import {
   FormStringList,
   FormFaqEditor,
   FormReferencesEditor,
+  FormRelatedArticles,
   FormDoctorSelect,
   FormDateTimePicker,
 } from "@/components/forms";
@@ -63,13 +66,32 @@ const faqItemSchema = z.object({
   answer: z.string().min(5, "حداقل ۵ کاراکتر"),
 });
 
+/** Strip `https://doi.org/` / `doi:` wrappers so we store the bare DOI. */
+const normaliseDoi = (v: string): string =>
+  v.trim().replace(/^(https?:\/\/(dx\.)?doi\.org\/|doi:\s*)/i, "").trim();
+/** Strip `PMID:` prefix so we store only digits. */
+const normalisePmid = (v: string): string =>
+  v.trim().replace(/^pmid:\s*/i, "").trim();
+
 const referenceItemSchema = z.object({
   title: z.string().min(2, "عنوان منبع الزامی است"),
-  url: z.string().url("URL معتبر نیست").optional().or(z.literal("")),
-  doi: z.string().optional().or(z.literal("")),
+  // URL is required now — every reference must be verifiable. Mirrors the
+  // backend schema; without this the admin form lets an invalid record
+  // through and the backend rejects it on save.
+  url: z.string().url("URL منبع الزامی و باید معتبر باشد"),
+  doi: z
+    .string()
+    .transform(normaliseDoi)
+    .refine(
+      (v) => v === "" || /^10\.\d{4,9}\/\S+$/.test(v),
+      "DOI باید فقط شناسه باشد (مثل 10.1056/NEJMoa1801993)",
+    )
+    .optional()
+    .or(z.literal("")),
   pmid: z
     .string()
-    .regex(/^\d*$/, "PMID باید عدد باشد")
+    .transform(normalisePmid)
+    .refine((v) => v === "" || /^\d+$/.test(v), "PMID باید فقط عدد باشد")
     .optional()
     .or(z.literal("")),
   authors: z.string().optional().or(z.literal("")),
@@ -124,6 +146,12 @@ const schema = z.object({
 
   // Rich blocks
   keyTakeaways: z.array(z.string()),
+  commonMistakes: z.array(z.string()),
+  // Editor-curated related-article ids, in render order. Stored as plain
+  // numbers (the picker widget normalises strings → numbers before writing
+  // into form state, so no z.coerce here — that would turn the inferred
+  // input type into `unknown[]` and break the resolver match).
+  relatedArticleIds: z.array(z.number().int().positive()).max(12),
   faq: z.array(faqItemSchema),
   references: z.array(referenceItemSchema),
 
@@ -268,6 +296,8 @@ export function ArticleForm({ slug }: { slug?: string }) {
       isFeatured: false,
 
       keyTakeaways: [],
+      commonMistakes: [],
+      relatedArticleIds: [],
       faq: [],
       references: [],
 
@@ -358,6 +388,8 @@ export function ArticleForm({ slug }: { slug?: string }) {
           isFeatured: a.isFeatured ?? false,
 
           keyTakeaways: a.keyTakeaways ?? [],
+          commonMistakes: a.commonMistakes ?? [],
+          relatedArticleIds: a.relatedArticleIds ?? [],
           faq: a.faq ?? [],
           references: a.references ?? [],
 
@@ -459,6 +491,12 @@ export function ArticleForm({ slug }: { slug?: string }) {
           keyTakeaways: values.keyTakeaways
             .map((s) => s.trim())
             .filter(Boolean),
+          commonMistakes: values.commonMistakes
+            .map((s) => s.trim())
+            .filter(Boolean),
+          relatedArticleIds: values.relatedArticleIds.filter(
+            (n) => Number.isInteger(n) && n > 0,
+          ),
           faq: values.faq.filter(
             (f) => f.question.trim() && f.answer.trim(),
           ),
@@ -595,10 +633,23 @@ export function ArticleForm({ slug }: { slug?: string }) {
                       max={10}
                       placeholder="یک نکته کلیدی…"
                     />
+                    <FormStringList<Values>
+                      name="commonMistakes"
+                      label="اشتباهات رایج"
+                      hint="باورهای غلط یا خطاهای پرتکرار درباره موضوع — به‌صورت کالاوت قرمز در فرانت نمایش داده می‌شوند."
+                      max={10}
+                      placeholder="مثلاً: «هر دردِ قفسهٔ سینه قلبی است»"
+                    />
                     <FormFaqEditor<Values>
                       name="faq"
                       label="پرسش‌های متداول (FAQ)"
                       hint="هر پرسش/پاسخ به‌صورت Rich Snippet در گوگل نمایش داده می‌شود."
+                    />
+                    <FormRelatedArticles<Values>
+                      name="relatedArticleIds"
+                      label="مقالات مرتبط (دستی)"
+                      hint="در صورت خالی بودن، فهرست خودکار براساس دسته‌بندی نمایش داده می‌شود. حداکثر ۱۲ مقاله — به همان ترتیبی که اینجا چیده می‌شود."
+                      max={12}
                     />
                   </CardContent>
                 </Card>
@@ -611,7 +662,7 @@ export function ArticleForm({ slug }: { slug?: string }) {
                     <FormReferencesEditor<Values>
                       name="references"
                       label="منابع علمی"
-                      hint="عنوان منبع الزامی است. سایر فیلدها (نویسنده، DOI، PMID، URL) برای استناد دقیق توصیه می‌شود."
+                      hint="عنوان و URL منبع الزامی است. DOI و PMID فقط شناسهٔ خالص (بدون https:// یا doi: یا PMID:) ذخیره می‌شود؛ اگر آدرس کامل بچسبانی، خودکار پاک‌سازی می‌شود."
                     />
                   </CardContent>
                 </Card>
@@ -887,11 +938,27 @@ export function ArticleForm({ slug }: { slug?: string }) {
               <CardHeader>
                 <CardTitle>برچسب‌ها</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-3">
                 <FormMultiSelect<Values>
                   name="tagIds"
                   label="انتخاب برچسب‌ها"
                   options={tags.map((t) => ({ label: t.name, value: String(t.id) }))}
+                />
+                <InlineCreateTag
+                  onCreated={(t) => {
+                    setTags((prev) => {
+                      if (prev.some((p) => p.id === t.id)) return prev;
+                      return [...prev, t];
+                    });
+                    const current = methods.getValues("tagIds") ?? [];
+                    if (!current.includes(String(t.id))) {
+                      methods.setValue(
+                        "tagIds",
+                        [...current, String(t.id)],
+                        { shouldDirty: true, shouldValidate: true },
+                      );
+                    }
+                  }}
                 />
               </CardContent>
             </Card>
@@ -908,5 +975,80 @@ export function ArticleForm({ slug }: { slug?: string }) {
         </div>
       </form>
     </FormProvider>
+  );
+}
+
+/**
+ * Inline "create a new tag" row. Lives under the tags multi-select so editors
+ * don't have to leave the article form to add a missing tag.
+ *
+ * Posts to `tagsService.create` which the backend treats as a pending tag
+ * (admins/moderators may need to approve it later). The new tag is bubbled
+ * back to the caller via `onCreated` so the parent can refresh its local
+ * `tags` cache and auto-select the new id.
+ */
+function InlineCreateTag({ onCreated }: { onCreated: (tag: Tag) => void }) {
+  const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const submit = async () => {
+    const trimmed = name.trim();
+    if (trimmed.length < 2) {
+      toast.error("نام برچسب باید حداقل ۲ کاراکتر باشد.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const created = await tagsService.create({ name: trimmed });
+      onCreated(created);
+      setName("");
+      toast.success(`برچسب «${created.name}» ساخته شد و انتخاب گردید.`);
+    } catch (err) {
+      toast.error(parseApiError(err)?.message ?? "ساخت برچسب ناموفق بود.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="rounded-md border border-dashed border-border bg-card p-3">
+      <p className="mb-2 text-[11px] text-muted-foreground">
+        برچسب مدنظر در لیست بالا نیست؟ همین‌جا بسازید — به‌محض ایجاد، خودکار
+        انتخاب می‌شود.
+      </p>
+      <div className="flex items-center gap-2">
+        <Input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => {
+            // Enter inside the inline input should NOT submit the outer
+            // article form — it should only create the tag.
+            if (e.key === "Enter") {
+              e.preventDefault();
+              e.stopPropagation();
+              void submit();
+            }
+          }}
+          placeholder="نام برچسب جدید…"
+          maxLength={60}
+          disabled={busy}
+          className="h-9 text-sm"
+        />
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          onClick={submit}
+          disabled={busy || name.trim().length < 2}
+        >
+          {busy ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <Plus className="size-4" />
+          )}
+          ایجاد
+        </Button>
+      </div>
+    </div>
   );
 }

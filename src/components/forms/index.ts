@@ -11,5 +11,6 @@ export * from "./form-rich-editor";
 export * from "./form-string-list";
 export * from "./form-faq-editor";
 export * from "./form-references-editor";
+export * from "./form-related-articles";
 export * from "./form-doctor-select";
 export * from "./form-user-select";

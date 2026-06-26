@@ -491,7 +491,15 @@ function CategoryFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-hidden sm:max-w-2xl">
+      {/* Force RTL on the whole dialog. The admin layout direction sometimes
+          inherits LTR (from a parent that locked it for code/URL inputs), and
+          the category form is Persian-content-first — name, descriptions,
+          help text. Without an explicit `dir`, labels and text flow into
+          the wrong side and tab indicators land on the wrong edge. */}
+      <DialogContent
+        dir="rtl"
+        className="max-h-[90vh] overflow-hidden text-start sm:max-w-2xl"
+      >
         <DialogHeader>
           <DialogTitle>{editing ? "ویرایش دسته" : "دسته جدید"}</DialogTitle>
           <DialogDescription>
