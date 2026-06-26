@@ -8,9 +8,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
 import { ArrowLeft, Loader2, Save } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   FormInput,
   FormSelect,
@@ -317,133 +316,135 @@ export function CategoryForm({ id, parentId: presetParentId }: Props) {
   return (
     <FormProvider {...methods}>
       <form onSubmit={onSubmit} className="space-y-4" dir="rtl">
-        <Tabs dir="rtl" defaultValue="general" className="flex flex-col">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="general">عمومی</TabsTrigger>
-            <TabsTrigger value="display">نمایش</TabsTrigger>
-            <TabsTrigger value="seo">سئو</TabsTrigger>
-          </TabsList>
+        {/* All form sections rendered linearly — no tabs. The page scrolls
+            top → bottom so editors don't have to hunt for fields. Cards
+            (with header titles) act as visual section separators. */}
 
-          <TabsContent value="general" className="space-y-3 outline-none">
-            <Card>
-              <CardContent className="space-y-3 pt-5">
-                <FormInput<Values> name="name" label="نام" required />
-                <FormInput<Values>
-                  name="slug"
-                  label="شناسه (slug)"
-                  hint="فقط حروف کوچک انگلیسی، عدد و خط تیره. اگر خالی باشد، خودکار از نام ساخته می‌شود."
-                  dir="ltr"
-                />
-                <FormSelect<Values>
-                  name="parentId"
-                  label="دسته والد"
-                  options={parentOptions}
-                  placeholder="انتخاب کنید"
-                />
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <FormSelect<Values>
-                    name="status"
-                    label="وضعیت"
-                    options={STATUS_OPTIONS.map((o) => ({
-                      value: o.value,
-                      label: o.label,
-                    }))}
-                  />
-                  <FormInput<Values>
-                    name="sortOrder"
-                    label="ترتیب نمایش"
-                    type="number"
-                    hint="عدد کوچک‌تر = اولویت بالاتر"
-                  />
-                </div>
-                <FormSwitch<Values>
-                  name="isFeatured"
-                  label="دسته ویژه (نمایش در صفحات خاص)"
-                />
-                <FormTextarea<Values>
-                  name="shortDescription"
-                  label="توضیح کوتاه"
-                  rows={2}
-                  hint={`حداکثر ۲۰۰ کاراکتر — برای نمایش در کارت‌ها و فهرست‌ها. تا ${toPersianDigits(
-                    MAX_CATEGORY_DEPTH,
-                  )} لایه تو در تو پشتیبانی می‌شود.`}
-                />
-              </CardContent>
-            </Card>
-          </TabsContent>
+        {/* ───────── Section: General ───────── */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">اطلاعات عمومی</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <FormInput<Values> name="name" label="نام" required />
+            <FormInput<Values>
+              name="slug"
+              label="شناسه (slug)"
+              hint="فقط حروف کوچک انگلیسی، عدد و خط تیره. اگر خالی باشد، خودکار از نام ساخته می‌شود."
+              dir="ltr"
+            />
+            <FormSelect<Values>
+              name="parentId"
+              label="دسته والد"
+              options={parentOptions}
+              placeholder="انتخاب کنید"
+            />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <FormSelect<Values>
+                name="status"
+                label="وضعیت"
+                options={STATUS_OPTIONS.map((o) => ({
+                  value: o.value,
+                  label: o.label,
+                }))}
+              />
+              <FormInput<Values>
+                name="sortOrder"
+                label="ترتیب نمایش"
+                type="number"
+                hint="عدد کوچک‌تر = اولویت بالاتر"
+              />
+            </div>
+            <FormSwitch<Values>
+              name="isFeatured"
+              label="دسته ویژه (نمایش در صفحات خاص)"
+            />
+            <FormTextarea<Values>
+              name="shortDescription"
+              label="توضیح کوتاه"
+              rows={2}
+              hint={`حداکثر ۲۰۰ کاراکتر — برای نمایش در کارت‌ها و فهرست‌ها. تا ${toPersianDigits(
+                MAX_CATEGORY_DEPTH,
+              )} لایه تو در تو پشتیبانی می‌شود.`}
+            />
+          </CardContent>
+        </Card>
 
-          <TabsContent value="display" className="space-y-3 outline-none">
-            <Card>
-              <CardContent className="space-y-3 pt-5">
-                <MediaField<Values>
-                  name="coverImage"
-                  label="تصویر شاخص"
-                  kind="image"
-                  hint="ابعاد پیشنهادی: ۱۲۰۰×۶۳۰"
-                />
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <FormInput<Values>
-                    name="icon"
-                    label="آیکن (lucide name یا URL)"
-                    dir="ltr"
-                    hint="مثل heart, brain یا یک آدرس SVG"
-                  />
-                  <FormInput<Values>
-                    name="color"
-                    label="رنگ شاخص"
-                    placeholder="#1e88e5"
-                    dir="ltr"
-                    hint="HEX — برای border/badge ها استفاده می‌شود"
-                  />
-                </div>
-                <FormRichEditor<Values>
-                  name="description"
-                  label="توضیحات کامل"
-                  hint="در صفحهٔ عمومی دسته، در باکس سئو «درباره {نام دسته}» نمایش داده می‌شود."
-                />
-              </CardContent>
-            </Card>
-          </TabsContent>
+        {/* ───────── Section: Display ───────── */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">نمایش</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <MediaField<Values>
+              name="coverImage"
+              label="تصویر شاخص"
+              kind="image"
+              hint="ابعاد پیشنهادی: ۱۲۰۰×۶۳۰"
+            />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <FormInput<Values>
+                name="icon"
+                label="آیکن (lucide name یا URL)"
+                dir="ltr"
+                hint="مثل heart, brain یا یک آدرس SVG"
+              />
+              <FormInput<Values>
+                name="color"
+                label="رنگ شاخص"
+                placeholder="#1e88e5"
+                dir="ltr"
+                hint="HEX — برای border/badge ها استفاده می‌شود"
+              />
+            </div>
+            <FormRichEditor<Values>
+              name="description"
+              label="توضیحات کامل"
+              hint="در صفحهٔ عمومی دسته، در باکس سئو «درباره {نام دسته}» نمایش داده می‌شود."
+            />
+          </CardContent>
+        </Card>
 
-          <TabsContent value="seo" className="space-y-3 outline-none">
-            <Card>
-              <CardContent className="space-y-3 pt-5">
-                <FormInput<Values>
-                  name="metaTitle"
-                  label="عنوان سئو (Meta Title)"
-                  hint="پیشنهاد: ۵۰–۶۰ کاراکتر"
-                />
-                <FormTextarea<Values>
-                  name="metaDescription"
-                  label="توضیح سئو (Meta Description)"
-                  rows={3}
-                  hint="پیشنهاد: ۱۵۰–۱۶۰ کاراکتر"
-                />
-                <FormInput<Values>
-                  name="metaKeywords"
-                  label="کلمات کلیدی"
-                  hint="با ویرگول جدا کنید"
-                />
-                <MediaField<Values>
-                  name="ogImage"
-                  label="تصویر Open Graph"
-                  kind="image"
-                  hint="نسبت پیشنهادی ۱.۹:۱ — استفاده در اشتراک شبکه‌های اجتماعی"
-                />
-                <FormInput<Values>
-                  name="canonicalUrl"
-                  label="آدرس Canonical"
-                  dir="ltr"
-                  placeholder="https://… یا /…"
-                />
-                <FormSwitch<Values>
-                  name="noIndex"
-                  label="عدم index توسط موتورهای جستجو"
-                />
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+        {/* ───────── Section: SEO ───────── */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">سئو</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <FormInput<Values>
+              name="metaTitle"
+              label="عنوان سئو (Meta Title)"
+              hint="پیشنهاد: ۵۰–۶۰ کاراکتر"
+            />
+            <FormTextarea<Values>
+              name="metaDescription"
+              label="توضیح سئو (Meta Description)"
+              rows={3}
+              hint="پیشنهاد: ۱۵۰–۱۶۰ کاراکتر"
+            />
+            <FormInput<Values>
+              name="metaKeywords"
+              label="کلمات کلیدی"
+              hint="با ویرگول جدا کنید"
+            />
+            <MediaField<Values>
+              name="ogImage"
+              label="تصویر Open Graph"
+              kind="image"
+              hint="نسبت پیشنهادی ۱.۹:۱ — استفاده در اشتراک شبکه‌های اجتماعی"
+            />
+            <FormInput<Values>
+              name="canonicalUrl"
+              label="آدرس Canonical"
+              dir="ltr"
+              placeholder="https://… یا /…"
+            />
+            <FormSwitch<Values>
+              name="noIndex"
+              label="عدم index توسط موتورهای جستجو"
+            />
+          </CardContent>
+        </Card>
 
         {/* Sticky action bar — keeps Save reachable when the long description
             pushes the page well below the viewport. */}
