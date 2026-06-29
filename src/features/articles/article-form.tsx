@@ -460,8 +460,17 @@ export function ArticleForm({ slug }: { slug?: string }) {
           subtitle: clean(values.subtitle),
           summary: clean(values.summary),
           content: values.content,
-          content2: clean(values.content2),
-          content3: clean(values.content3),
+          // content2/content3 are optional secondary blocks. Send them as raw
+          // strings (never `undefined`) so emptying one on EDIT actually clears
+          // the column. Routing them through `clean()` turned an empty value
+          // into `undefined`; JSON.stringify then dropped the key, and the
+          // backend — which skips `undefined` fields to support partial PATCHes
+          // — kept the OLD text. Same trap the list fields (keyTakeaways/faq/
+          // references) avoid by always sending a value. The backend's
+          // `cleanString("")` maps the empty string back to NULL, so the create
+          // path is unchanged (empty → NULL just as before).
+          content2: values.content2 ?? "",
+          content3: values.content3 ?? "",
           // Belt-and-braces: strip dashes here too in case any older code path
           // injects a `-` (e.g. paste from clipboard before the watcher fires).
           // The backend stores the canonical space-separated form; dashes only
