@@ -20,6 +20,7 @@ type Props<T extends FieldValues> = {
   required?: boolean;
   placeholder?: string;
   max?: number;
+  maxLength?: number;
   /** Show row reorder handles (visual only — no DnD yet). */
   showHandles?: boolean;
 };
@@ -36,6 +37,7 @@ export function FormStringList<T extends FieldValues>({
   required,
   placeholder = "یک مورد بنویسید…",
   max = 10,
+  maxLength,
   showHandles = true,
 }: Props<T>) {
   const { control, formState } = useFormContext<T>();
@@ -56,8 +58,11 @@ export function FormStringList<T extends FieldValues>({
           };
           const removeRow = (i: number) =>
             update(value.filter((_, idx) => idx !== i));
-          const editRow = (i: number, v: string) =>
-            update(value.map((s, idx) => (idx === i ? v : s)));
+          const editRow = (i: number, v: string) => {
+            const nextValue =
+              maxLength !== undefined ? v.slice(0, maxLength) : v;
+            update(value.map((s, idx) => (idx === i ? nextValue : s)));
+          };
 
           return (
             <div className="space-y-2">
@@ -87,9 +92,21 @@ export function FormStringList<T extends FieldValues>({
                       value={v}
                       onChange={(e) => editRow(i, e.target.value)}
                       onBlur={(e) => editRow(i, e.target.value.trim())}
+                      maxLength={maxLength}
                       placeholder={placeholder}
                       className="h-9 border-0 focus-visible:ring-0 focus-visible:ring-offset-0 px-2"
                     />
+                    {maxLength !== undefined && (
+                      <span
+                        className={cn(
+                          "shrink-0 text-[10px] text-muted-foreground tabular-nums",
+                          v.length >= maxLength && "text-destructive",
+                        )}
+                      >
+                        {v.length.toLocaleString("fa-IR")} /{" "}
+                        {maxLength.toLocaleString("fa-IR")}
+                      </span>
+                    )}
                     <button
                       type="button"
                       onClick={() => removeRow(i)}

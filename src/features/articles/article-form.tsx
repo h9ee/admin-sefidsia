@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FormProvider, useForm } from "react-hook-form";
+import { FormProvider, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
@@ -145,8 +145,10 @@ const schema = z.object({
   isFeatured: z.boolean(),
 
   // Rich blocks
-  keyTakeaways: z.array(z.string()),
-  commonMistakes: z.array(z.string()),
+  keyTakeaways: z.array(z.string().max(280, "هر نکته حداکثر ۲۸۰ کاراکتر است")),
+  commonMistakes: z.array(
+    z.string().max(280, "هر اشتباه رایج حداکثر ۲۸۰ کاراکتر است"),
+  ),
   // Editor-curated related-article ids, in render order. Stored as plain
   // numbers (the picker widget normalises strings → numbers before writing
   // into form state, so no z.coerce here — that would turn the inferred
@@ -265,7 +267,13 @@ export function ArticleForm({ slug }: { slug?: string }) {
   // gated forever in that case.
   const [tagsLoaded, setTagsLoaded] = useState(false);
   const [tree, setTree] = useState<CategoryNode[]>([]);
+  const [categoriesLoaded, setCategoriesLoaded] = useState(false);
+  const [fallbackCategoryOption, setFallbackCategoryOption] = useState<{
+    label: string;
+    value: string;
+  } | null>(null);
   const [articleId, setArticleId] = useState<string | null>(null);
+  const [now] = useState(() => Date.now());
   // Track which action button is in flight so we can spin only the one
   // that was clicked and disable the rest meanwhile.
   const [busyAction, setBusyAction] = useState<null | "draft" | "publish">(null);
@@ -328,18 +336,21 @@ export function ArticleForm({ slug }: { slug?: string }) {
     categoriesService
       .listTree()
       .then((t) => setTree(t))
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => setCategoriesLoaded(true));
   }, []);
 
   useEffect(() => {
     if (!slug) return;
-    // We MUST wait for BOTH the category tree AND the tags list before
-    // resetting the form. Radix's Select / Combobox bind value→label at
-    // mount and won't re-resolve once items arrive, so resetting with
-    // `tagIds: ["14","15","16"]` while `tags=[]` left the multi-select
-    // visually empty even though the value was stored — which is exactly
-    // why the article's saved tags didn't appear on edit.
-    if (tree.length === 0 || !tagsLoaded) return;
+    // We wait for category metadata and tags before resetting the form.
+    // The category request may legitimately return an empty tree, so readiness
+    // is tracked separately from `tree.length`.
+    //
+    // Tags still need the old value→label guard: Radix's Select / Combobox bind
+    // value→label at mount and won't re-resolve once items arrive, so resetting
+    // with `tagIds: ["14","15","16"]` while `tags=[]` left the multi-select
+    // visually empty even though the value was stored.
+    if (!categoriesLoaded || !tagsLoaded) return;
     articlesService
       .getBySlug(slug)
       .then((a) => {
@@ -363,6 +374,14 @@ export function ArticleForm({ slug }: { slug?: string }) {
             : aAny.reviewer?.id != null
               ? Number(aAny.reviewer.id)
               : null;
+        if (categoryFK && aAny.category?.name) {
+          setFallbackCategoryOption({
+            label: aAny.category.name,
+            value: categoryFK,
+          });
+        } else {
+          setFallbackCategoryOption(null);
+        }
 
         methods.reset({
           title: a.title,
@@ -411,18 +430,17 @@ export function ArticleForm({ slug }: { slug?: string }) {
         });
       })
       .catch((e) => toast.error(parseApiError(e).message));
-    // `tree.length` + `tagsLoaded` are in the deps so the effect re-runs once
-    // either dependent list finishes loading. The early-return above makes the
-    // first run (before tree/tags arrive) harmless; the actual reset happens
-    // on a later pass once both are ready.
-  }, [slug, methods, tree.length, tagsLoaded]);
+    // The readiness flags are in the deps so the effect re-runs once either
+    // dependent request finishes. The early return above makes the first run
+    // harmless; the reset happens once both are ready.
+  }, [slug, methods, categoriesLoaded, tagsLoaded]);
 
   // Canonical form for `url` is space-separated — the dash is reserved for the
   // public-link rendering (`articleHref()` converts spaces → dashes). If the
   // editor types/pastes a `-`, silently rewrite it back to a space so the
   // value heading to the backend is always the canonical form. This kills
   // the old "both forms accepted on disk" leakage at the source.
-  const watchedUrl = methods.watch("url");
+  const watchedUrl = useWatch({ control: methods.control, name: "url" });
   useEffect(() => {
     if (typeof watchedUrl !== "string" || !watchedUrl.includes("-")) return;
     const cleaned = watchedUrl.replace(/-+/g, " ").replace(/\s+/g, " ");
@@ -431,14 +449,19 @@ export function ArticleForm({ slug }: { slug?: string }) {
     }
   }, [watchedUrl, methods]);
 
-  const categoryOptions = useMemo(
-    () =>
-      flattenTree(tree).map((n) => ({
-        label: indentedLabel(n),
-        value: String(n.id),
-      })),
-    [tree],
-  );
+  const categoryOptions = useMemo(() => {
+    const options = flattenTree(tree).map((n) => ({
+      label: indentedLabel(n),
+      value: String(n.id),
+    }));
+    if (
+      fallbackCategoryOption &&
+      !options.some((o) => o.value === fallbackCategoryOption.value)
+    ) {
+      options.push(fallbackCategoryOption);
+    }
+    return options;
+  }, [tree, fallbackCategoryOption]);
 
   const submit = (publishAfter?: boolean) =>
     methods.handleSubmit(
@@ -525,7 +548,7 @@ export function ArticleForm({ slug }: { slug?: string }) {
           requireMedicalReview: values.requireMedicalReview,
 
           scheduledAt: values.scheduledAt ?? null,
-          status: values.status,
+          status: publishAfter ? values.status : "draft",
         };
 
         const article =
@@ -534,11 +557,13 @@ export function ArticleForm({ slug }: { slug?: string }) {
             : await articlesService.create(payload);
 
         if (publishAfter) {
-          await articlesService.publish(article.id);
+          const publishedArticle = await articlesService.publish(article.id);
           toast.success(
-            article.status === "scheduled"
+            publishedArticle.status === "scheduled"
               ? "مقاله برای انتشار زمان‌بندی شد"
-              : "مقاله برای انتشار ارسال شد",
+              : publishedArticle.status === "pending_review"
+                ? "مقاله برای بازبینی پزشکی ارسال شد"
+                : "مقاله منتشر شد",
           );
         } else {
           toast.success(isEdit ? "مقاله بروزرسانی شد" : "مقاله ذخیره شد");
@@ -556,9 +581,9 @@ export function ArticleForm({ slug }: { slug?: string }) {
     },
     );
 
-  const scheduledAt = methods.watch("scheduledAt");
+  const scheduledAt = useWatch({ control: methods.control, name: "scheduledAt" });
   const isScheduled =
-    scheduledAt && new Date(scheduledAt).getTime() > Date.now();
+    scheduledAt && new Date(scheduledAt).getTime() > now;
 
   return (
     <FormProvider {...methods}>
@@ -640,13 +665,15 @@ export function ArticleForm({ slug }: { slug?: string }) {
                       label="نکات کلیدی"
                       hint="3 تا 5 نکته اصلی که خواننده باید بداند — در بالای مقاله نمایش داده می‌شوند."
                       max={10}
+                      maxLength={280}
                       placeholder="یک نکته کلیدی…"
                     />
                     <FormStringList<Values>
                       name="commonMistakes"
                       label="اشتباهات رایج"
-                      hint="باورهای غلط یا خطاهای پرتکرار درباره موضوع — به‌صورت کالاوت قرمز در فرانت نمایش داده می‌شوند."
+                      hint="باورهای غلط یا خطاهای پرتکرار درباره موضوع — حداکثر ۲۸۰ کاراکتر برای هر مورد."
                       max={10}
+                      maxLength={280}
                       placeholder="مثلاً: «هر دردِ قفسهٔ سینه قلبی است»"
                     />
                     <FormFaqEditor<Values>
@@ -742,12 +769,14 @@ export function ArticleForm({ slug }: { slug?: string }) {
                       <FormInput<Values>
                         name="seoTitle"
                         label="عنوان سئو"
+                        maxLength={160}
                         hint="اگر خالی باشد، از عنوان اصلی استفاده می‌شود. حداکثر ۱۶۰ کاراکتر."
                       />
                       <FormTextarea<Values>
                         name="seoDescription"
                         label="توضیحات سئو (meta description)"
                         rows={3}
+                        maxLength={255}
                         hint="بهترین طول: ۱۵۰ تا ۲۵۵ کاراکتر."
                       />
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -913,7 +942,9 @@ export function ArticleForm({ slug }: { slug?: string }) {
                   required
                   options={categoryOptions}
                   placeholder={
-                    categoryOptions.length === 0
+                    !categoriesLoaded
+                      ? "در حال بارگذاری دسته‌ها…"
+                      : categoryOptions.length === 0
                       ? "ابتدا یک دسته‌بندی بسازید"
                       : "انتخاب دسته"
                   }
