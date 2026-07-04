@@ -81,6 +81,11 @@ const RichTextEditorComponent = memo((
     useProse = false
   }: { value: string; onChange: (data: string) => void; placeholder?: string; useProse?: boolean }
 ) => {
+  const [editorInstance, setEditorInstance] = useState<CKEditorInstance | null>(null);
+  const [findText, setFindText] = useState('');
+  const [replaceText, setReplaceText] = useState('');
+  const [matchCount, setMatchCount] = useState<number | null>(null);
+
   const editorConfig = useMemo(() => ({
     licenseKey: 'GPL',
     language: { ui: 'fa', content: 'fa' },
@@ -222,6 +227,7 @@ const RichTextEditorComponent = memo((
   }), [placeholder]);
 
   const handleReady = (editor: CKEditorInstance) => {
+    setEditorInstance(editor);
     // نمایش هشدارهای CKEditor با Toast
     const notificationPlugin = editor.plugins.get('Notification');
 
@@ -242,12 +248,115 @@ const RichTextEditorComponent = memo((
         data={value ?? ''}                 // ← تضمین رشتهٔ خالی
         config={editorConfig}
         onReady={handleReady}
+        onAfterDestroy={() => setEditorInstance(null)}
         onChange={(_event: EventInfo, editor: CKEditorInstance) => onChange(editor.getData())}
+      />
+      <FindReplacePanel
+        editor={editorInstance}
+        findText={findText}
+        replaceText={replaceText}
+        matchCount={matchCount}
+        onFindTextChange={setFindText}
+        onReplaceTextChange={setReplaceText}
+        onMatchCountChange={setMatchCount}
       />
     </div>
   );
 });
 RichTextEditorComponent.displayName = 'RichTextEditorComponent';
+
+function FindReplacePanel({
+  editor,
+  findText,
+  replaceText,
+  matchCount,
+  onFindTextChange,
+  onReplaceTextChange,
+  onMatchCountChange,
+}: {
+  editor: CKEditorInstance | null;
+  findText: string;
+  replaceText: string;
+  matchCount: number | null;
+  onFindTextChange: (value: string) => void;
+  onReplaceTextChange: (value: string) => void;
+  onMatchCountChange: (value: number | null) => void;
+}) {
+  const runFind = () => {
+    if (!editor || !findText.trim()) {
+      onMatchCountChange(null);
+      return null;
+    }
+    const result = editor.execute('find', findText) as {
+      results?: { length: number; get: (index: number) => unknown };
+    };
+    const count = result.results?.length ?? 0;
+    onMatchCountChange(count);
+    return result;
+  };
+
+  const replaceOne = () => {
+    const result = runFind();
+    const first = result?.results?.get(0);
+    if (!editor || !first) return;
+    editor.execute('replace', replaceText, first);
+    onMatchCountChange(Math.max((result?.results?.length ?? 1) - 1, 0));
+  };
+
+  const replaceAll = () => {
+    const result = runFind();
+    const count = result?.results?.length ?? 0;
+    if (!editor || !findText.trim() || count === 0) return;
+    editor.execute('replaceAll', replaceText, findText);
+    onMatchCountChange(0);
+  };
+
+  return (
+    <div className="mt-2 rounded-lg border border-border bg-muted/30 p-2">
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end">
+        <div>
+          <Label className="text-xs">جستجو</Label>
+          <Input
+            value={findText}
+            onChange={(e) => {
+              onFindTextChange(e.target.value);
+              onMatchCountChange(null);
+            }}
+            placeholder="متن مورد نظر…"
+            className="mt-1"
+          />
+        </div>
+        <div>
+          <Label className="text-xs">جایگزینی با</Label>
+          <Input
+            value={replaceText}
+            onChange={(e) => onReplaceTextChange(e.target.value)}
+            placeholder="متن جدید…"
+            className="mt-1"
+          />
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <Button type="button" variant="outline" size="sm" onClick={runFind} disabled={!editor || !findText.trim()}>
+            جستجو
+          </Button>
+          <Button type="button" variant="outline" size="sm" onClick={replaceOne} disabled={!editor || !findText.trim()}>
+            جایگزینی
+          </Button>
+          <Button type="button" size="sm" onClick={replaceAll} disabled={!editor || !findText.trim()}>
+            جایگزینی همه
+          </Button>
+        </div>
+      </div>
+      {matchCount !== null ? (
+        <p className="mt-1.5 text-xs text-muted-foreground">
+          {matchCount > 0
+            ? `${matchCount.toLocaleString('fa-IR')} مورد پیدا شد.`
+            : 'موردی پیدا نشد.'}
+        </p>
+      ) : null}
+    </div>
+  );
+}
 
 /* -------------------------------------------------------------------------- */
 /* Main Editor Component */

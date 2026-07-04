@@ -7,8 +7,9 @@ import {
   type Path,
   useFormContext,
 } from "react-hook-form";
-import { BookOpen, ChevronDown, Plus, X } from "lucide-react";
+import { BookOpen, ChevronDown, Globe2, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { FormField } from "./form-field";
 import { Label } from "@/components/ui/label";
@@ -16,9 +17,8 @@ import { cn } from "@/lib/cn";
 
 type ReferenceItem = {
   title: string;
+  sourceType?: "book" | "website";
   url?: string;
-  doi?: string;
-  pmid?: string;
   authors?: string;
   year?: number;
   publisher?: string;
@@ -32,7 +32,7 @@ type Props<T extends FieldValues> = {
   max?: number;
 };
 
-/** Edits an array of scientific references with optional DOI/PMID metadata. */
+/** Edits an array of scientific references with source type metadata. */
 export function FormReferencesEditor<T extends FieldValues>({
   name,
   label,
@@ -55,7 +55,7 @@ export function FormReferencesEditor<T extends FieldValues>({
 
           const addRow = () => {
             if (value.length >= max) return;
-            update([...value, { title: "" }]);
+            update([...value, { title: "", sourceType: "website" }]);
             setOpenIdx(value.length);
           };
           const removeRow = (i: number) =>
@@ -110,6 +110,14 @@ export function FormReferencesEditor<T extends FieldValues>({
                               </span>
                             )}
                           </span>
+                          <span className="hidden shrink-0 items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground sm:inline-flex">
+                            {item.sourceType === "book" ? (
+                              <BookOpen className="h-3 w-3" />
+                            ) : (
+                              <Globe2 className="h-3 w-3" />
+                            )}
+                            {item.sourceType === "book" ? "کتاب" : "سایت"}
+                          </span>
                           {(item.year || item.publisher) && (
                             <span className="hidden sm:inline text-xs text-muted-foreground">
                               {item.publisher}
@@ -138,6 +146,27 @@ export function FormReferencesEditor<T extends FieldValues>({
                               placeholder="عنوان مقاله یا کتاب"
                               className="mt-1"
                             />
+                          </div>
+                          <div className="sm:col-span-2">
+                            <label className="flex items-start gap-2 rounded-lg border border-border bg-muted/30 p-3 text-sm">
+                              <Checkbox
+                                checked={item.sourceType === "book"}
+                                onCheckedChange={(checked) =>
+                                  editRow(i, {
+                                    sourceType: checked ? "book" : "website",
+                                  })
+                                }
+                                className="mt-0.5"
+                              />
+                              <span className="space-y-0.5">
+                                <span className="block font-medium">
+                                  این منبع کتاب است
+                                </span>
+                                <span className="block text-xs text-muted-foreground">
+                                  اگر تیک نخورده باشد، منبع به‌عنوان سایت ذخیره می‌شود.
+                                </span>
+                              </span>
+                            </label>
                           </div>
                           <div className="sm:col-span-2">
                             <Label className="text-xs">نویسندگان</Label>
@@ -182,7 +211,7 @@ export function FormReferencesEditor<T extends FieldValues>({
                             />
                           </div>
                           <div className="sm:col-span-2">
-                            <Label className="text-xs">URL منبع *</Label>
+                            <Label className="text-xs">URL منبع</Label>
                             <Input
                               value={item.url ?? ""}
                               onChange={(e) =>
@@ -194,65 +223,10 @@ export function FormReferencesEditor<T extends FieldValues>({
                               placeholder="https://www.example.com/article"
                               className="mt-1"
                               dir="ltr"
-                              required
                               type="url"
                             />
                             <p className="mt-1 text-[10.5px] text-muted-foreground">
-                              لینک کامل صفحه‌ی منبع، الزامی است.
-                            </p>
-                          </div>
-                          <div>
-                            <Label className="text-xs">DOI</Label>
-                            <Input
-                              value={item.doi ?? ""}
-                              onChange={(e) =>
-                                editRow(i, { doi: e.target.value })
-                              }
-                              // Strip `https://doi.org/` / `doi:` on blur so
-                              // the user immediately sees the canonical bare
-                              // form rather than re-typing it after a paste.
-                              onBlur={(e) =>
-                                editRow(i, {
-                                  doi: e.target.value
-                                    .trim()
-                                    .replace(
-                                      /^(https?:\/\/(dx\.)?doi\.org\/|doi:\s*)/i,
-                                      "",
-                                    )
-                                    .trim(),
-                                })
-                              }
-                              placeholder="10.1056/NEJMoa1801993"
-                              className="mt-1"
-                              dir="ltr"
-                            />
-                            <p className="mt-1 text-[10.5px] text-muted-foreground">
-                              فقط شناسه (بدون https یا doi:)
-                            </p>
-                          </div>
-                          <div>
-                            <Label className="text-xs">PMID</Label>
-                            <Input
-                              value={item.pmid ?? ""}
-                              onChange={(e) =>
-                                editRow(i, { pmid: e.target.value })
-                              }
-                              onBlur={(e) =>
-                                editRow(i, {
-                                  pmid: e.target.value
-                                    .trim()
-                                    .replace(/^pmid:\s*/i, "")
-                                    .trim(),
-                                })
-                              }
-                              placeholder="38912345"
-                              className="mt-1"
-                              dir="ltr"
-                              inputMode="numeric"
-                              pattern="\d*"
-                            />
-                            <p className="mt-1 text-[10.5px] text-muted-foreground">
-                              فقط عدد
+                              برای منابع سایت می‌توانید لینک صفحه را وارد کنید؛ اجباری نیست.
                             </p>
                           </div>
                         </div>

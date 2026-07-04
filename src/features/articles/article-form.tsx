@@ -16,7 +16,6 @@ import {
   Loader2,
   Plus,
   Save,
-  Send,
   Share2,
   Sparkles,
   Stethoscope,
@@ -48,6 +47,8 @@ import {
   indentedLabel,
 } from "@/services/categories.service";
 import { parseApiError } from "@/lib/api-error";
+import { cn } from "@/lib/cn";
+import { toPersianDigits } from "@/lib/format";
 import type {
   ArticleStatus,
   CategoryNode,
@@ -66,34 +67,10 @@ const faqItemSchema = z.object({
   answer: z.string().min(5, "حداقل ۵ کاراکتر"),
 });
 
-/** Strip `https://doi.org/` / `doi:` wrappers so we store the bare DOI. */
-const normaliseDoi = (v: string): string =>
-  v.trim().replace(/^(https?:\/\/(dx\.)?doi\.org\/|doi:\s*)/i, "").trim();
-/** Strip `PMID:` prefix so we store only digits. */
-const normalisePmid = (v: string): string =>
-  v.trim().replace(/^pmid:\s*/i, "").trim();
-
 const referenceItemSchema = z.object({
   title: z.string().min(2, "عنوان منبع الزامی است"),
-  // URL is required now — every reference must be verifiable. Mirrors the
-  // backend schema; without this the admin form lets an invalid record
-  // through and the backend rejects it on save.
-  url: z.string().url("URL منبع الزامی و باید معتبر باشد"),
-  doi: z
-    .string()
-    .transform(normaliseDoi)
-    .refine(
-      (v) => v === "" || /^10\.\d{4,9}\/\S+$/.test(v),
-      "DOI باید فقط شناسه باشد (مثل 10.1056/NEJMoa1801993)",
-    )
-    .optional()
-    .or(z.literal("")),
-  pmid: z
-    .string()
-    .transform(normalisePmid)
-    .refine((v) => v === "" || /^\d+$/.test(v), "PMID باید فقط عدد باشد")
-    .optional()
-    .or(z.literal("")),
+  sourceType: z.enum(["book", "website"]).optional(),
+  url: z.string().url("URL منبع باید معتبر باشد").optional().or(z.literal("")),
   authors: z.string().optional().or(z.literal("")),
   year: z.number().int().optional(),
   publisher: z.string().optional().or(z.literal("")),
@@ -256,6 +233,53 @@ function firstErrorMessage(errors: unknown): string | undefined {
   return undefined;
 }
 
+function SeoLengthMeter({
+  value,
+  max,
+  note,
+  idealMin,
+}: {
+  value?: string | null;
+  max: number;
+  note: string;
+  idealMin?: number;
+}) {
+  const length = value?.length ?? 0;
+  const remaining = Math.max(max - length, 0);
+  const percent = Math.min((length / max) * 100, 100);
+  const isIdeal = idealMin ? length >= idealMin && length <= max : length > 0 && length <= max;
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between gap-3 text-xs">
+        <span className="text-muted-foreground">{note}</span>
+        <span
+          className={cn(
+            "shrink-0 font-medium tabular-nums",
+            remaining === 0 ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground",
+          )}
+        >
+          {toPersianDigits(length)} / {toPersianDigits(max)} نویسه
+        </span>
+      </div>
+      <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+        <div
+          className={cn(
+            "h-full rounded-full transition-all duration-200",
+            isIdeal ? "bg-emerald-500" : "bg-primary",
+          )}
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+      <p className="text-xs text-muted-foreground">
+        {remaining > 0
+          ? `${toPersianDigits(remaining)} نویسه دیگر باقی مانده است.`
+          : "به سقف مجاز رسیده‌اید."}
+      </p>
+    </div>
+  );
+}
+
 /* ---------------------------- Component ---------------------------- */
 
 export function ArticleForm({ slug }: { slug?: string }) {
@@ -274,9 +298,7 @@ export function ArticleForm({ slug }: { slug?: string }) {
   } | null>(null);
   const [articleId, setArticleId] = useState<string | null>(null);
   const [now] = useState(() => Date.now());
-  // Track which action button is in flight so we can spin only the one
-  // that was clicked and disable the rest meanwhile.
-  const [busyAction, setBusyAction] = useState<null | "draft" | "publish">(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const methods = useForm<Values>({
     resolver: zodResolver(schema),
@@ -463,11 +485,11 @@ export function ArticleForm({ slug }: { slug?: string }) {
     return options;
   }, [tree, fallbackCategoryOption]);
 
-  const submit = (publishAfter?: boolean) =>
+  const submit =
     methods.handleSubmit(
     async (values) => {
-      if (busyAction) return; // guard against double-click while a save is mid-flight
-      setBusyAction(publishAfter ? "publish" : "draft");
+      if (isSaving) return; // guard against double-click while a save is mid-flight
+      setIsSaving(true);
       try {
         const clean = (v?: string | null) =>
           v && v.length > 0 ? v : undefined;
@@ -532,7 +554,16 @@ export function ArticleForm({ slug }: { slug?: string }) {
           faq: values.faq.filter(
             (f) => f.question.trim() && f.answer.trim(),
           ),
-          references: values.references.filter((r) => r.title.trim()),
+          references: values.references
+            .filter((r) => r.title.trim())
+            .map(({ title, sourceType, url, authors, year, publisher }) => ({
+              title,
+              sourceType: sourceType ?? "website",
+              url,
+              authors,
+              year,
+              publisher,
+            })),
 
           seoTitle: clean(values.seoTitle),
           seoDescription: clean(values.seoDescription),
@@ -548,31 +579,21 @@ export function ArticleForm({ slug }: { slug?: string }) {
           requireMedicalReview: values.requireMedicalReview,
 
           scheduledAt: values.scheduledAt ?? null,
-          status: publishAfter ? values.status : "draft",
+          status: values.status,
         };
 
-        const article =
-          isEdit && articleId
-            ? await articlesService.update(articleId, payload)
-            : await articlesService.create(payload);
-
-        if (publishAfter) {
-          const publishedArticle = await articlesService.publish(article.id);
-          toast.success(
-            publishedArticle.status === "scheduled"
-              ? "مقاله برای انتشار زمان‌بندی شد"
-              : publishedArticle.status === "pending_review"
-                ? "مقاله برای بازبینی پزشکی ارسال شد"
-                : "مقاله منتشر شد",
-          );
+        if (isEdit && articleId) {
+          await articlesService.update(articleId, payload);
         } else {
-          toast.success(isEdit ? "مقاله بروزرسانی شد" : "مقاله ذخیره شد");
+          await articlesService.create(payload);
         }
+
+        toast.success(isEdit ? "مقاله بروزرسانی شد" : "مقاله ذخیره شد");
         router.push("/articles");
       } catch (e) {
         toast.error(parseApiError(e).message);
       } finally {
-        setBusyAction(null);
+        setIsSaving(false);
       }
     },
     (errors) => {
@@ -582,6 +603,11 @@ export function ArticleForm({ slug }: { slug?: string }) {
     );
 
   const scheduledAt = useWatch({ control: methods.control, name: "scheduledAt" });
+  const seoTitle = useWatch({ control: methods.control, name: "seoTitle" });
+  const seoDescription = useWatch({
+    control: methods.control,
+    name: "seoDescription",
+  });
   const isScheduled =
     scheduledAt && new Date(scheduledAt).getTime() > now;
 
@@ -698,7 +724,7 @@ export function ArticleForm({ slug }: { slug?: string }) {
                     <FormReferencesEditor<Values>
                       name="references"
                       label="منابع علمی"
-                      hint="عنوان و URL منبع الزامی است. DOI و PMID فقط شناسهٔ خالص (بدون https:// یا doi: یا PMID:) ذخیره می‌شود؛ اگر آدرس کامل بچسبانی، خودکار پاک‌سازی می‌شود."
+                      hint="فقط عنوان منبع الزامی است. نوع منبع را مشخص کنید: کتاب یا سایت."
                     />
                   </CardContent>
                 </Card>
@@ -766,19 +792,32 @@ export function ArticleForm({ slug }: { slug?: string }) {
                         <FileText className="h-4 w-4" />
                         سئو پایه
                       </h3>
-                      <FormInput<Values>
-                        name="seoTitle"
-                        label="عنوان سئو"
-                        maxLength={160}
-                        hint="اگر خالی باشد، از عنوان اصلی استفاده می‌شود. حداکثر ۱۶۰ کاراکتر."
-                      />
-                      <FormTextarea<Values>
-                        name="seoDescription"
-                        label="توضیحات سئو (meta description)"
-                        rows={3}
-                        maxLength={255}
-                        hint="بهترین طول: ۱۵۰ تا ۲۵۵ کاراکتر."
-                      />
+                      <div className="space-y-2">
+                        <FormInput<Values>
+                          name="seoTitle"
+                          label="عنوان سئو"
+                          maxLength={160}
+                        />
+                        <SeoLengthMeter
+                          value={seoTitle}
+                          max={160}
+                          note="اگر خالی باشد، از عنوان اصلی استفاده می‌شود."
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <FormTextarea<Values>
+                          name="seoDescription"
+                          label="توضیحات سئو (meta description)"
+                          rows={3}
+                          maxLength={255}
+                        />
+                        <SeoLengthMeter
+                          value={seoDescription}
+                          max={255}
+                          idealMin={150}
+                          note="بهترین طول: ۱۵۰ تا ۲۵۵ نویسه."
+                        />
+                      </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <FormInput<Values>
                           name="focusKeyword"
@@ -840,41 +879,21 @@ export function ArticleForm({ slug }: { slug?: string }) {
                 {isScheduled && (
                   <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
                     این مقاله برای زمان آینده زمان‌بندی شده است. پس از زدن
-                    «انتشار»، در زمان مقرر منتشر می‌شود.
+                    «ذخیره»، در زمان مقرر منتشر می‌شود.
                   </div>
                 )}
                 <Button
                   type="button"
                   className="w-full"
-                  onClick={submit(false)}
-                  disabled={busyAction !== null}
+                  onClick={submit}
+                  disabled={isSaving}
                 >
-                  {busyAction === "draft" ? (
+                  {isSaving ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     <Save className="h-4 w-4" />
                   )}
-                  {busyAction === "draft" ? "در حال ذخیره…" : "ذخیره پیش‌نویس"}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  onClick={submit(true)}
-                  disabled={busyAction !== null}
-                >
-                  {busyAction === "publish" ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Send className="h-4 w-4" />
-                  )}
-                  {busyAction === "publish"
-                    ? isScheduled
-                      ? "در حال زمان‌بندی…"
-                      : "در حال انتشار…"
-                    : isScheduled
-                      ? "ذخیره و زمان‌بندی"
-                      : "ذخیره و انتشار"}
+                  {isSaving ? "در حال ذخیره…" : "ذخیره"}
                 </Button>
               </CardContent>
             </Card>

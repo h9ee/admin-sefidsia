@@ -46,9 +46,8 @@ export type FaqItem = {
 
 export type ReferenceItem = {
   title: string;
+  sourceType?: "book" | "website";
   url?: string;
-  doi?: string;
-  pmid?: string;
   authors?: string;
   year?: number;
   publisher?: string;
