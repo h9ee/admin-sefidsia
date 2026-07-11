@@ -14,3 +14,4 @@ export * from "./error-logs.service";
 export * from "./tickets.service";
 export * from "./audit.service";
 export * from "./contact.service";
+export * from "./page-seo.service";

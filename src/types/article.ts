@@ -87,6 +87,7 @@ export type Category = {
   description: string | null;
   icon: string | null;
   coverImage: string | null;
+  coverImageAlt: string | null;
   color: string | null;
   parentId: number | null;
   status: CategoryStatus;

@@ -68,6 +68,7 @@ const schema = z.object({
   description: optionalStr,
   icon: z.string().max(100).optional().or(z.literal("")),
   coverImage: optionalUrl,
+  coverImageAlt: z.string().max(255).optional().or(z.literal("")),
   color: z.string().regex(HEX, "رنگ HEX، مثل #1e88e5").optional().or(z.literal("")),
   metaTitle: z.string().max(200).optional().or(z.literal("")),
   metaDescription: z.string().max(320).optional().or(z.literal("")),
@@ -89,6 +90,7 @@ const DEFAULTS: Values = {
   description: "",
   icon: "",
   coverImage: "",
+  coverImageAlt: "",
   color: "",
   metaTitle: "",
   metaDescription: "",
@@ -186,6 +188,7 @@ export function CategoryForm({ id, parentId: presetParentId }: Props) {
           description: cat.description ?? "",
           icon: cat.icon ?? "",
           coverImage: cat.coverImage ?? "",
+          coverImageAlt: cat.coverImageAlt ?? "",
           color: cat.color ?? "",
           metaTitle: cat.metaTitle ?? "",
           metaDescription: cat.metaDescription ?? "",
@@ -264,6 +267,7 @@ export function CategoryForm({ id, parentId: presetParentId }: Props) {
       description: empty(values.description),
       icon: empty(values.icon),
       coverImage: empty(values.coverImage),
+      coverImageAlt: empty(values.coverImageAlt),
       color: empty(values.color),
       metaTitle: empty(values.metaTitle),
       metaDescription: empty(values.metaDescription),
@@ -381,6 +385,11 @@ export function CategoryForm({ id, parentId: presetParentId }: Props) {
               label="تصویر شاخص"
               kind="image"
               hint="ابعاد پیشنهادی: ۱۲۰۰×۶۳۰"
+            />
+            <FormInput<Values>
+              name="coverImageAlt"
+              label="متن جایگزین تصویر شاخص (alt)"
+              hint="برای دسترس‌پذیری و سئو. اگر خالی بماند، در سایت از نام دسته استفاده می‌شود."
             />
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <FormInput<Values>

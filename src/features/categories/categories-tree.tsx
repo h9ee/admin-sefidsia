@@ -176,7 +176,7 @@ function Branch({
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={mediaUrl(node.coverImage)}
-            alt=""
+            alt={node.coverImageAlt ?? node.name}
             className="h-7 w-7 shrink-0 rounded-md object-cover ring-1 ring-border"
           />
         ) : node.color ? (
