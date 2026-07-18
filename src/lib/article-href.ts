@@ -4,8 +4,8 @@
  * client renders. Mirrors `client-sefidsia/src/lib/article-href.ts` so the
  * two surfaces never drift apart.
  *
- * The backend stores `url` in space-separated form (`iphone pro max`); the
- * browser-visible URL replaces spaces with dashes (`iphone-pro-max`).
+ * The backend stores `url` in canonical kebab-case (`iphone-pro-max`).
+ * `slugifyUrl` remains defensive for legacy/cached values during migration.
  */
 export function articleHref(article: { url?: string | null }): string {
   return `/articles/${slugifyUrl(article.url ?? "")}`;

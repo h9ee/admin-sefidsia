@@ -47,6 +47,7 @@ import {
   indentedLabel,
 } from "@/services/categories.service";
 import { parseApiError } from "@/lib/api-error";
+import { slugifyUrl } from "@/lib/article-href";
 import { cn } from "@/lib/cn";
 import { toPersianDigits } from "@/lib/format";
 import type {
@@ -457,20 +458,6 @@ export function ArticleForm({ slug }: { slug?: string }) {
     // harmless; the reset happens once both are ready.
   }, [slug, methods, categoriesLoaded, tagsLoaded]);
 
-  // Canonical form for `url` is space-separated — the dash is reserved for the
-  // public-link rendering (`articleHref()` converts spaces → dashes). If the
-  // editor types/pastes a `-`, silently rewrite it back to a space so the
-  // value heading to the backend is always the canonical form. This kills
-  // the old "both forms accepted on disk" leakage at the source.
-  const watchedUrl = useWatch({ control: methods.control, name: "url" });
-  useEffect(() => {
-    if (typeof watchedUrl !== "string" || !watchedUrl.includes("-")) return;
-    const cleaned = watchedUrl.replace(/-+/g, " ").replace(/\s+/g, " ");
-    if (cleaned !== watchedUrl) {
-      methods.setValue("url", cleaned, { shouldValidate: false, shouldDirty: true });
-    }
-  }, [watchedUrl, methods]);
-
   const categoryOptions = useMemo(() => {
     const options = flattenTree(tree).map((n) => ({
       label: indentedLabel(n),
@@ -516,16 +503,9 @@ export function ArticleForm({ slug }: { slug?: string }) {
           // path is unchanged (empty → NULL just as before).
           content2: values.content2 ?? "",
           content3: values.content3 ?? "",
-          // Belt-and-braces: strip dashes here too in case any older code path
-          // injects a `-` (e.g. paste from clipboard before the watcher fires).
-          // The backend stores the canonical space-separated form; dashes only
-          // exist as the public-link rendering convention.
-          url: clean(
-            values.url
-              ?.replace(/-+/g, " ")
-              .replace(/\s+/g, " ")
-              .trim(),
-          ),
+          // Persist one canonical kebab-case value. The public client redirects
+          // legacy space/underscore URLs while the database migration catches up.
+          url: clean(values.url ? slugifyUrl(values.url) : values.url),
           coverImage: clean(values.coverImage),
           coverImageAlt: clean(values.coverImageAlt),
 

@@ -116,8 +116,7 @@ export type Article = {
   id: string;
   title: string;
   subtitle: string | null;
-  /** Public URL slug — stored as readable text with spaces ("iphone pro max").
-   *  Unique. The browser-facing URL replaces spaces with dashes. */
+  /** Canonical browser-facing kebab slug. */
   url: string;
   summary: string | null;
   content: string;
@@ -170,6 +169,7 @@ export type Article = {
 
   createdAt: string;
   updatedAt: string;
+  contentUpdatedAt?: string | null;
   author?: User;
   reviewer?: User | null;
   category?: Category | null;

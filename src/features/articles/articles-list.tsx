@@ -1,9 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Edit, Eye, MoreHorizontal, Plus, Trash2, Send } from "lucide-react";
+import {
+  Edit,
+  Eye,
+  Loader2,
+  MoreHorizontal,
+  Plus,
+  Trash2,
+  Send,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,12 +34,21 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { PermissionGuard } from "@/components/permission/permission-guard";
 import { usePermission } from "@/hooks/use-permission";
 import { articlesService } from "@/services/articles.service";
+import {
+  categoriesService,
+  flattenTree,
+} from "@/services/categories.service";
 import { parseApiError } from "@/lib/api-error";
 import { formatDate } from "@/lib/format";
 import { mediaUrl } from "@/lib/media-url";
 import { displayName } from "@/lib/user";
 import { articleHref } from "@/lib/article-href";
-import type { Article, ArticleStatus, Paginated } from "@/types";
+import type {
+  Article,
+  ArticleStatus,
+  CategoryNode,
+  Paginated,
+} from "@/types";
 
 export function ArticlesList() {
   const { can } = usePermission();
@@ -40,30 +57,87 @@ export function ArticlesList() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<ArticleStatus | "all">("all");
+  const [categoryId, setCategoryId] = useState<number | "all">("all");
+  const [limit, setLimit] = useState(10);
+  const [categories, setCategories] = useState<CategoryNode[]>([]);
+  const [publishingId, setPublishingId] = useState<string | null>(null);
+  const publishingRef = useRef(false);
   const [reload, setReload] = useState(0);
 
   useEffect(() => {
     let active = true;
-    setLoading(true);
+    categoriesService
+      .listTree()
+      .then((tree) => {
+        if (active) setCategories(flattenTree(tree));
+      })
+      .catch(() => {
+        if (active) setCategories([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
     articlesService
       .list({
         page,
-        limit: 10,
+        limit,
         q: search || undefined,
         // Send "all" explicitly so the backend skips its default
         // `status='published'` filter and returns every status.
         status,
+        categoryId: categoryId === "all" ? undefined : categoryId,
       })
       .then((res) => active && setData(res))
       .catch(() =>
         active &&
-        setData({ data: [], meta: { page, limit: 10, total: 0, totalPages: 1 } }),
+        setData({ data: [], meta: { page, limit, total: 0, totalPages: 1 } }),
       )
       .finally(() => active && setLoading(false));
     return () => {
       active = false;
     };
-  }, [page, search, status, reload]);
+  }, [page, search, status, categoryId, limit, reload]);
+
+  const publishArticle = async (article: Article) => {
+    if (publishingRef.current) return;
+    publishingRef.current = true;
+    setPublishingId(String(article.id));
+    try {
+      const updated = await articlesService.publish(article.id);
+      setData((current) =>
+        current
+          ? {
+              ...current,
+              data: current.data.map((row) =>
+                row.id === article.id
+                  ? {
+                      ...row,
+                      status: updated.status,
+                      publishedAt: updated.publishedAt,
+                    }
+                  : row,
+              ),
+            }
+          : current,
+      );
+      toast.success(
+        updated.status === "published"
+          ? "مقاله با موفقیت منتشر شد"
+          : "وضعیت مقاله با موفقیت به‌روزرسانی شد",
+      );
+      setLoading(true);
+      setReload((x) => x + 1);
+    } catch (error) {
+      toast.error(parseApiError(error).message);
+    } finally {
+      publishingRef.current = false;
+      setPublishingId(null);
+    }
+  };
 
   const columns = useMemo<Column<Article>[]>(
     () => [
@@ -149,10 +223,14 @@ export function ArticlesList() {
       data={data?.data ?? []}
       total={data?.meta.total}
       page={page}
-      perPage={data?.meta.limit ?? 10}
-      onPageChange={setPage}
+      perPage={data?.meta.limit ?? limit}
+      onPageChange={(nextPage) => {
+        setLoading(true);
+        setPage(nextPage);
+      }}
       search={search}
       onSearch={(q) => {
+        setLoading(true);
         setSearch(q);
         setPage(1);
       }}
@@ -160,25 +238,68 @@ export function ArticlesList() {
       loading={loading}
       columns={columns}
       filters={
-        <Select
-          value={status}
-          onValueChange={(v) => {
-            setStatus(v as ArticleStatus | "all");
-            setPage(1);
-          }}
-        >
-          <SelectTrigger className="w-44">
-            <SelectValue placeholder="وضعیت" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">همه وضعیت‌ها</SelectItem>
-            <SelectItem value="draft">پیش‌نویس</SelectItem>
-            <SelectItem value="pending_review">نیازمند بازبینی</SelectItem>
-            <SelectItem value="published">منتشر شده</SelectItem>
-            <SelectItem value="rejected">رد شده</SelectItem>
-            <SelectItem value="archived">بایگانی</SelectItem>
-          </SelectContent>
-        </Select>
+        <>
+          <Select
+            value={status}
+            onValueChange={(v) => {
+              setLoading(true);
+              setStatus(v as ArticleStatus | "all");
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="w-44">
+              <SelectValue placeholder="وضعیت" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">همه وضعیت‌ها</SelectItem>
+              <SelectItem value="draft">پیش‌نویس</SelectItem>
+              <SelectItem value="pending_review">نیازمند بازبینی</SelectItem>
+              <SelectItem value="published">منتشر شده</SelectItem>
+              <SelectItem value="rejected">رد شده</SelectItem>
+              <SelectItem value="archived">بایگانی</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select
+            value={String(categoryId)}
+            onValueChange={(value) => {
+              setLoading(true);
+              setCategoryId(value === "all" ? "all" : Number(value));
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="دسته‌بندی" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">همه دسته‌بندی‌ها</SelectItem>
+              {categories.map((category) => (
+                <SelectItem key={category.id} value={String(category.id)}>
+                  {"— ".repeat(Math.max(0, category.depth - 1))}
+                  {category.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={String(limit)}
+            onValueChange={(value) => {
+              setLoading(true);
+              setLimit(Number(value));
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="w-32">
+              <SelectValue placeholder="تعداد" />
+            </SelectTrigger>
+            <SelectContent>
+              {[10, 25, 50, 100].map((size) => (
+                <SelectItem key={size} value={String(size)}>
+                  {size} در صفحه
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </>
       }
       toolbar={
         <PermissionGuard permission="articles.create">
@@ -193,8 +314,16 @@ export function ArticlesList() {
       rowActions={(a) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon-sm">
-              <MoreHorizontal />
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              disabled={publishingId === String(a.id)}
+            >
+              {publishingId === String(a.id) ? (
+                <Loader2 className="animate-spin" />
+              ) : (
+                <MoreHorizontal />
+              )}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
@@ -214,17 +343,14 @@ export function ArticlesList() {
             ) : null}
             {can("articles.publish") && a.status !== "published" ? (
               <DropdownMenuItem
-                onClick={async () => {
-                  try {
-                    await articlesService.publish(a.id);
-                    setReload((x) => x + 1);
-                    toast.success("مقاله برای انتشار ارسال شد");
-                  } catch (e) {
-                    toast.error(parseApiError(e).message);
-                  }
-                }}
+                disabled={publishingId !== null}
+                onSelect={() => void publishArticle(a)}
               >
-                <Send className="h-4 w-4" />
+                {publishingId === String(a.id) ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
                 انتشار
               </DropdownMenuItem>
             ) : null}
@@ -239,6 +365,7 @@ export function ArticlesList() {
                   onConfirm={async () => {
                     try {
                       await articlesService.remove(a.id);
+                      setLoading(true);
                       setReload((x) => x + 1);
                       toast.success("مقاله حذف شد");
                     } catch (e) {
