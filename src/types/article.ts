@@ -133,6 +133,7 @@ export type Article = {
   medicalReviewStatus: MedicalReviewStatus;
   isFeatured: boolean;
   publishedAt: string | null;
+  firstPublishedAt: string | null;
   scheduledAt: string | null;
   lastReviewedAt: string | null;
 

@@ -26,7 +26,6 @@ import {
 } from "@/components/ui/dropdown";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
-import { PermissionGuard } from "@/components/permission/permission-guard";
 import { usePermission } from "@/hooks/use-permission";
 import { categoriesService } from "@/services/categories.service";
 import { parseApiError } from "@/lib/api-error";
@@ -54,7 +53,8 @@ const STATUS_BADGE: Record<
  * upload picker, fullscreen toggle, find-and-replace, etc.).
  */
 export function CategoriesTree() {
-  const { can } = usePermission();
+  const { can, hasRole, isDeveloper } = usePermission();
+  const canCreateCategory = hasRole("admin") || isDeveloper;
   const [tree, setTree] = useState<CategoryNode[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -104,14 +104,14 @@ export function CategoriesTree() {
             حداکثر تا {toPersianDigits(MAX_CATEGORY_DEPTH)} لایه تو در تو
           </p>
         </div>
-        <PermissionGuard permission="categories.manage">
+        {canCreateCategory && (
           <Button asChild size="sm">
             <Link href="/categories/new">
               <Plus />
               دسته ریشه
             </Link>
           </Button>
-        </PermissionGuard>
+        )}
       </CardHeader>
       <CardContent>
         {loading ? (

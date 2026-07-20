@@ -298,6 +298,7 @@ export function ArticleForm({ slug }: { slug?: string }) {
     value: string;
   } | null>(null);
   const [articleId, setArticleId] = useState<string | null>(null);
+  const [slugLocked, setSlugLocked] = useState(false);
   const [now] = useState(() => Date.now());
   const [isSaving, setIsSaving] = useState(false);
 
@@ -378,6 +379,13 @@ export function ArticleForm({ slug }: { slug?: string }) {
       .getBySlug(slug)
       .then((a) => {
         setArticleId(a.id);
+        setSlugLocked(
+          Boolean(
+            a.firstPublishedAt ||
+              a.publishedAt ||
+              a.status === "published",
+          ),
+        );
         // Robust fallbacks: read the FK column if present, otherwise fall back
         // to the included relation (`category.id`, `reviewer.id`). Tag ids are
         // coerced to strings to match the multi-select option values.
@@ -505,7 +513,11 @@ export function ArticleForm({ slug }: { slug?: string }) {
           content3: values.content3 ?? "",
           // Persist one canonical kebab-case value. The public client redirects
           // legacy space/underscore URLs while the database migration catches up.
-          url: clean(values.url ? slugifyUrl(values.url) : values.url),
+          // Once an article has ever been published, its public identity is
+          // immutable. Omit the field as well as disabling the control.
+          url: slugLocked
+            ? undefined
+            : clean(values.url ? slugifyUrl(values.url) : values.url),
           coverImage: clean(values.coverImage),
           coverImageAlt: clean(values.coverImageAlt),
 
@@ -623,8 +635,13 @@ export function ArticleForm({ slug }: { slug?: string }) {
                   name="url"
                   label="نشانی (URL) مقاله"
                   dir="auto"
+                  disabled={slugLocked}
                   placeholder="مثال: آلرژی نوزادان به پروتئین چیست"
-                  hint="متن دلخواه با فاصله وارد کنید (بدون خط تیره). در سایت، فاصله‌ها برای ساخت لینک خودکار به «-» تبدیل می‌شوند."
+                  hint={
+                    slugLocked
+                      ? "این نشانی به‌دلیل سابقه انتشار مقاله برای همیشه قفل و رزرو شده است."
+                      : "متن دلخواه با فاصله وارد کنید (بدون خط تیره). در سایت، فاصله‌ها برای ساخت لینک خودکار به «-» تبدیل می‌شوند."
+                  }
                 />
                 <FormRichEditor<Values>
                   name="content"
