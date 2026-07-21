@@ -24,10 +24,6 @@ WORKDIR /usr/src/app
 COPY --from=deps /usr/src/app/node_modules ./node_modules
 COPY . .
 
-# `NEXT_PUBLIC_*` vars are inlined into the JS bundle at `next build` time,
-# so they MUST be ARG+ENV here BEFORE `npm run build`. Without them, axios'
-# baseURL becomes empty and every API call falls back to the admin's own
-# origin (e.g. /auth/check-mobile instead of /apis/auth/check-mobile).
 ARG NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_API_URL_IMAGE
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL

@@ -60,8 +60,10 @@ export function ArticlesList() {
   const [categoryId, setCategoryId] = useState<number | "all">("all");
   const [limit, setLimit] = useState(10);
   const [categories, setCategories] = useState<CategoryNode[]>([]);
-  const [publishingId, setPublishingId] = useState<string | null>(null);
-  const publishingRef = useRef(false);
+  const [publishingIds, setPublishingIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const publishingRef = useRef<Set<string>>(new Set());
   const [reload, setReload] = useState(0);
 
   useEffect(() => {
@@ -103,9 +105,10 @@ export function ArticlesList() {
   }, [page, search, status, categoryId, limit, reload]);
 
   const publishArticle = async (article: Article) => {
-    if (publishingRef.current) return;
-    publishingRef.current = true;
-    setPublishingId(String(article.id));
+    const articleId = String(article.id);
+    if (publishingRef.current.has(articleId)) return;
+    publishingRef.current.add(articleId);
+    setPublishingIds((current) => new Set(current).add(articleId));
     try {
       const updated = await articlesService.publish(article.id);
       setData((current) =>
@@ -129,13 +132,15 @@ export function ArticlesList() {
           ? "مقاله با موفقیت منتشر شد"
           : "وضعیت مقاله با موفقیت به‌روزرسانی شد",
       );
-      setLoading(true);
-      setReload((x) => x + 1);
     } catch (error) {
       toast.error(parseApiError(error).message);
     } finally {
-      publishingRef.current = false;
-      setPublishingId(null);
+      publishingRef.current.delete(articleId);
+      setPublishingIds((current) => {
+        const next = new Set(current);
+        next.delete(articleId);
+        return next;
+      });
     }
   };
 
@@ -311,15 +316,17 @@ export function ArticlesList() {
           </Button>
         </PermissionGuard>
       }
-      rowActions={(a) => (
-        <DropdownMenu>
+      rowActions={(a) => {
+        const isPublishing = publishingIds.has(String(a.id));
+        return (
+          <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
               size="icon-sm"
-              disabled={publishingId === String(a.id)}
+              disabled={isPublishing}
             >
-              {publishingId === String(a.id) ? (
+              {isPublishing ? (
                 <Loader2 className="animate-spin" />
               ) : (
                 <MoreHorizontal />
@@ -343,10 +350,10 @@ export function ArticlesList() {
             ) : null}
             {can("articles.publish") && a.status !== "published" ? (
               <DropdownMenuItem
-                disabled={publishingId !== null}
+                disabled={isPublishing}
                 onSelect={() => void publishArticle(a)}
               >
-                {publishingId === String(a.id) ? (
+                {isPublishing ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <Send className="h-4 w-4" />
@@ -382,8 +389,9 @@ export function ArticlesList() {
               </>
             ) : null}
           </DropdownMenuContent>
-        </DropdownMenu>
-      )}
+          </DropdownMenu>
+        );
+      }}
     />
   );
 }

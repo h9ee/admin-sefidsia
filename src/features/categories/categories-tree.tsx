@@ -53,8 +53,8 @@ const STATUS_BADGE: Record<
  * upload picker, fullscreen toggle, find-and-replace, etc.).
  */
 export function CategoriesTree() {
-  const { can, hasRole, isDeveloper } = usePermission();
-  const canCreateCategory = hasRole("admin") || isDeveloper;
+  const { can, hasRole } = usePermission();
+  const canCreateCategory = hasRole("admin");
   const [tree, setTree] = useState<CategoryNode[]>([]);
   const [loading, setLoading] = useState(true);
 
